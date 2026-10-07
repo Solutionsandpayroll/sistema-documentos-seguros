@@ -1,5 +1,5 @@
 "use client";
-
+import "./dashboard.css";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import LogoutButton from "@/components/LogoutButton";
@@ -10,9 +10,16 @@ export default function DashboardPage() {
   // ============================================================
 
   const [currentUser, setCurrentUser] = useState({
-    name: "Greylin Martínez",
-    role: "Usuario",
+    name: "Administrador",
+    role: "Administrador",
   });
+
+  // ============================================================
+  // DOCUMENTOS
+  // ============================================================
+
+  const [recentDocuments, setRecentDocuments] = useState([]);
+  const [loadingDocuments, setLoadingDocuments] = useState(true);
 
   // ============================================================
   // CARGAR USUARIO DE LA SESIÓN
@@ -28,8 +35,8 @@ export default function DashboardPage() {
         const user = JSON.parse(savedUser);
 
         setCurrentUser({
-          name: user.name || "Usuario",
-          role: user.role || "Usuario",
+          name: user.name || user.nombre || "Administrador",
+          role: user.role || user.rol || "Administrador",
         });
       }
     } catch (error) {
@@ -41,60 +48,45 @@ export default function DashboardPage() {
   }, []);
 
   // ============================================================
-  // DATOS DE PRUEBA
+  // CARGAR DOCUMENTOS DESDE NEON
   // ============================================================
 
-  const recentDocuments = [
-    {
-      id: "DOC-006",
-      name: "Solicitud de autorización.pdf",
-      type: "PDF",
-      date: "01 Oct 2026",
-      status: "Pendiente",
-    },
-    {
-      id: "DOC-005",
-      name: "Política de tratamiento de datos.pdf",
-      type: "PDF",
-      date: "02 Oct 2026",
-      status: "Recibido",
-    },
-    {
-      id: "DOC-004",
-      name: "Certificación laboral.pdf",
-      type: "PDF",
-      date: "03 Oct 2026",
-      status: "Pendiente",
-    },
-    {
-      id: "DOC-003",
-      name: "Soporte de nómina septiembre.xlsx",
-      type: "XLSX",
-      date: "04 Oct 2026",
-      status: "Enviado",
-    },
-  ];
+  useEffect(() => {
+    const loadDocuments = async () => {
+      try {
+        setLoadingDocuments(true);
 
-  const pendingTickets = [
-    {
-      id: "TCK-001",
-      title: "Solicitud de acceso a documento",
-      date: "06 Oct 2026",
-      priority: "Alta",
-    },
-    {
-      id: "TCK-002",
-      title: "Documento pendiente de revisión",
-      date: "05 Oct 2026",
-      priority: "Media",
-    },
-    {
-      id: "TCK-003",
-      title: "Actualización de información",
-      date: "04 Oct 2026",
-      priority: "Baja",
-    },
-  ];
+        const response = await fetch("/api/documentos", {
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          throw new Error(
+            "Error consultando los documentos"
+          );
+        }
+
+        const data = await response.json();
+
+        if (Array.isArray(data)) {
+          setRecentDocuments(data);
+        } else {
+          setRecentDocuments([]);
+        }
+      } catch (error) {
+        console.error(
+          "Error cargando documentos:",
+          error
+        );
+
+        setRecentDocuments([]);
+      } finally {
+        setLoadingDocuments(false);
+      }
+    };
+
+    loadDocuments();
+  }, []);
 
   // ============================================================
   // OBTENER INICIALES DEL USUARIO
@@ -102,7 +94,7 @@ export default function DashboardPage() {
 
   const getInitials = (name) => {
     if (!name) {
-      return "US";
+      return "AD";
     }
 
     const words = name
@@ -111,24 +103,30 @@ export default function DashboardPage() {
       .filter(Boolean);
 
     if (words.length === 1) {
-      return words[0].substring(0, 2).toUpperCase();
+      return words[0]
+        .substring(0, 2)
+        .toUpperCase();
     }
 
     return (
-      words[0][0] + words[words.length - 1][0]
+      words[0][0] +
+      words[words.length - 1][0]
     ).toUpperCase();
   };
 
   // ============================================================
-  // FUNCIÓN PARA OBTENER CLASE DEL ESTADO
+  // CLASE DEL ESTADO
   // ============================================================
 
   const getStatusClass = (status) => {
-    if (status === "Enviado") {
+    const normalizedStatus =
+      status?.toLowerCase();
+
+    if (normalizedStatus === "enviado") {
       return "blue";
     }
 
-    if (status === "Recibido") {
+    if (normalizedStatus === "recibido") {
       return "green";
     }
 
@@ -136,29 +134,85 @@ export default function DashboardPage() {
   };
 
   // ============================================================
-  // FUNCIÓN PARA PRIORIDAD DE TICKETS
+  // TIPO DE ARCHIVO
   // ============================================================
 
-  const getPriorityClass = (priority) => {
-    if (priority === "Alta") {
-      return "high";
+  const getFileType = (fileName) => {
+    if (!fileName) {
+      return "FILE";
     }
 
-    if (priority === "Media") {
-      return "medium";
+    const parts = fileName.split(".");
+
+    if (parts.length < 2) {
+      return "FILE";
     }
 
-    return "low";
+    return parts[
+      parts.length - 1
+    ].toUpperCase();
   };
 
-  const userInitials = getInitials(currentUser.name);
+  // ============================================================
+  // FORMATEAR FECHA
+  // ============================================================
+
+  const formatDate = (date) => {
+    if (!date) {
+      return "";
+    }
+
+    try {
+      return new Date(date).toLocaleDateString(
+        "es-CO",
+        {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        }
+      );
+    } catch (error) {
+      return "";
+    }
+  };
+
+  // ============================================================
+  // ESTADÍSTICAS
+  // ============================================================
+
+  const totalDocuments =
+    recentDocuments.length;
+
+  const sentDocuments =
+    recentDocuments.filter(
+      (document) =>
+        document.estado?.toLowerCase() ===
+        "enviado"
+    ).length;
+
+  const receivedDocuments =
+    recentDocuments.filter(
+      (document) =>
+        document.estado?.toLowerCase() ===
+        "recibido"
+    ).length;
+
+  // ============================================================
+  // DOCUMENTOS RECIENTES
+  // ============================================================
+
+  const documentsToShow =
+    recentDocuments.slice(0, 4);
+
+  const userInitials =
+    getInitials(currentUser.name);
 
   return (
     <div className="dashboard-layout">
 
       {/* ========================================================
           MENÚ LATERAL
-      ========================================================= */}
+      ======================================================== */}
 
       <aside className="sidebar">
 
@@ -180,7 +234,6 @@ export default function DashboardPage() {
 
         </div>
 
-
         {/* NAVEGACIÓN */}
 
         <nav className="sidebar-navigation">
@@ -188,7 +241,6 @@ export default function DashboardPage() {
           <div className="navigation-section">
             PRINCIPAL
           </div>
-
 
           {/* DASHBOARD */}
 
@@ -205,7 +257,6 @@ export default function DashboardPage() {
             </span>
           </Link>
 
-
           {/* DOCUMENTOS */}
 
           <Link
@@ -220,7 +271,6 @@ export default function DashboardPage() {
               Documentos
             </span>
           </Link>
-
 
           {/* ENVIADOS */}
 
@@ -237,7 +287,6 @@ export default function DashboardPage() {
             </span>
           </Link>
 
-
           {/* RECIBIDOS */}
 
           <Link
@@ -252,7 +301,6 @@ export default function DashboardPage() {
               Recibidos
             </span>
           </Link>
-
 
           {/* TICKETS */}
 
@@ -269,13 +317,11 @@ export default function DashboardPage() {
             </span>
           </Link>
 
-
-          {/* SECCIÓN GESTIÓN */}
+          {/* GESTIÓN */}
 
           <div className="navigation-section second-section">
             GESTIÓN
           </div>
-
 
           {/* HISTORIAL */}
 
@@ -291,7 +337,6 @@ export default function DashboardPage() {
               Historial
             </span>
           </Link>
-
 
           {/* ADMINISTRACIÓN */}
 
@@ -311,7 +356,6 @@ export default function DashboardPage() {
           )}
 
         </nav>
-
 
         {/* USUARIO */}
 
@@ -337,7 +381,6 @@ export default function DashboardPage() {
 
           </div>
 
-
           {/* CERRAR SESIÓN */}
 
           <LogoutButton className="logout-link">
@@ -354,16 +397,13 @@ export default function DashboardPage() {
 
       </aside>
 
-
       {/* ========================================================
           CONTENIDO PRINCIPAL
-      ========================================================= */}
+      ======================================================== */}
 
       <main className="dashboard-main">
 
-        {/* ======================================================
-            ENCABEZADO
-        ======================================================= */}
+        {/* ENCABEZADO */}
 
         <header className="dashboard-header">
 
@@ -378,7 +418,6 @@ export default function DashboardPage() {
             </h1>
 
           </div>
-
 
           <div className="header-right">
 
@@ -406,39 +445,34 @@ export default function DashboardPage() {
 
         </header>
 
-
-        {/* ======================================================
-            CONTENIDO
-        ======================================================= */}
+        {/* CONTENIDO */}
 
         <div className="dashboard-content">
 
-
-          {/* ====================================================
-              BIENVENIDA
-          ===================================================== */}
+          {/* BIENVENIDA */}
 
           <section className="welcome-card">
 
             <div className="welcome-content">
 
               <span className="welcome-eyebrow">
-                BIENVENIDA
+                PANEL ADMINISTRATIVO
               </span>
 
               <h2>
-                Hola, {currentUser.name.split(" ")[0]} 👋
+                Hola,{" "}
+                {currentUser.name.split(" ")[0]} 👋
               </h2>
 
               <p>
-                Bienvenida a tu portal documental.
-                Desde aquí puedes consultar tus documentos,
-                revisar pendientes y realizar seguimiento
-                a tus solicitudes.
+                Bienvenida al portal documental.
+                Desde aquí puedes consultar los
+                documentos del sistema, revisar
+                el historial y realizar seguimiento
+                de la actividad.
               </p>
 
             </div>
-
 
             <div className="welcome-action">
 
@@ -457,13 +491,9 @@ export default function DashboardPage() {
 
           </section>
 
-
-          {/* ====================================================
-              INDICADORES
-          ===================================================== */}
+          {/* INDICADORES */}
 
           <section className="stats-grid">
-
 
             {/* DOCUMENTOS ENVIADOS */}
 
@@ -484,17 +514,16 @@ export default function DashboardPage() {
               <div className="stat-card-bottom">
 
                 <strong>
-                  24
+                  {sentDocuments}
                 </strong>
 
                 <span className="stat-description">
-                  Este mes
+                  En el sistema
                 </span>
 
               </div>
 
             </article>
-
 
             {/* DOCUMENTOS RECIBIDOS */}
 
@@ -515,48 +544,16 @@ export default function DashboardPage() {
               <div className="stat-card-bottom">
 
                 <strong>
-                  18
+                  {receivedDocuments}
                 </strong>
 
                 <span className="stat-description">
-                  Este mes
+                  En el sistema
                 </span>
 
               </div>
 
             </article>
-
-
-            {/* TICKETS */}
-
-            <article className="stat-card">
-
-              <div className="stat-card-top">
-
-                <div className="stat-icon orange">
-                  ◷
-                </div>
-
-                <span className="stat-label">
-                  Tickets pendientes
-                </span>
-
-              </div>
-
-              <div className="stat-card-bottom">
-
-                <strong>
-                  3
-                </strong>
-
-                <span className="stat-description">
-                  Requieren atención
-                </span>
-
-              </div>
-
-            </article>
-
 
             {/* TOTAL DOCUMENTOS */}
 
@@ -577,11 +574,41 @@ export default function DashboardPage() {
               <div className="stat-card-bottom">
 
                 <strong>
-                  42
+                  {totalDocuments}
                 </strong>
 
                 <span className="stat-description">
-                  En el sistema
+                  Registrados
+                </span>
+
+              </div>
+
+            </article>
+
+            {/* ACCESOS */}
+
+            <article className="stat-card">
+
+              <div className="stat-card-top">
+
+                <div className="stat-icon orange">
+                  ◷
+                </div>
+
+                <span className="stat-label">
+                  Actividad
+                </span>
+
+              </div>
+
+              <div className="stat-card-bottom">
+
+                <strong>
+                  →
+                </strong>
+
+                <span className="stat-description">
+                  Ver historial
                 </span>
 
               </div>
@@ -590,17 +617,11 @@ export default function DashboardPage() {
 
           </section>
 
-
-          {/* ====================================================
-              CONTENIDO INFERIOR
-          ===================================================== */}
+          {/* CONTENIDO INFERIOR */}
 
           <section className="dashboard-columns">
 
-
-            {/* ==================================================
-                DOCUMENTOS RECIENTES
-            =================================================== */}
+            {/* DOCUMENTOS RECIENTES */}
 
             <div className="content-card">
 
@@ -618,7 +639,6 @@ export default function DashboardPage() {
 
                 </div>
 
-
                 <Link
                   href="/dashboard/documents"
                   className="view-all-link"
@@ -628,66 +648,116 @@ export default function DashboardPage() {
 
               </div>
 
-
               <div className="documents-list">
 
-                {recentDocuments.map((document) => (
+                {loadingDocuments ? (
 
-                  <div
-                    key={document.id}
-                    className="recent-document"
-                  >
-
-                    {/* TIPO */}
-
-                    <div
-                      className={`document-type ${document.type.toLowerCase()}`}
-                    >
-                      {document.type}
-                    </div>
-
-
-                    {/* INFORMACIÓN */}
+                  <div className="recent-document">
 
                     <div className="recent-document-info">
 
                       <strong>
-                        {document.name}
+                        Cargando documentos...
+                      </strong>
+
+                    </div>
+
+                  </div>
+
+                ) : documentsToShow.length === 0 ? (
+
+                  <div className="recent-document">
+
+                    <div className="recent-document-info">
+
+                      <strong>
+                        No hay documentos registrados
                       </strong>
 
                       <span>
-                        {document.id} · {document.date}
+                        Los documentos aparecerán aquí
+                        cuando se registren.
                       </span>
 
                     </div>
 
-
-                    {/* ESTADO */}
-
-                    <span
-                      className={`status-badge ${getStatusClass(
-                        document.status
-                      )}`}
-                    >
-
-                      <span className="status-dot"></span>
-
-                      {document.status}
-
-                    </span>
-
                   </div>
 
-                ))}
+                ) : (
+
+                  documentsToShow.map(
+                    (document) => {
+
+                      const fileType =
+                        getFileType(
+                          document.nombre_archivo
+                        );
+
+                      return (
+                        <div
+                          key={document.id}
+                          className="recent-document"
+                        >
+
+                          {/* TIPO */}
+
+                          <div
+                            className={`document-type ${fileType.toLowerCase()}`}
+                          >
+                            {fileType}
+                          </div>
+
+                          {/* INFORMACIÓN */}
+
+                          <div className="recent-document-info">
+
+                            <strong>
+                              {document.nombre_archivo}
+                            </strong>
+
+                            <span>
+                              DOC-
+                              {String(
+                                document.id
+                              ).padStart(3, "0")}
+                              {" · "}
+                              {formatDate(
+                                document.creado_en
+                              )}
+                              {" · "}
+                              {document.empresa ||
+                                "Sin empresa"}
+                            </span>
+
+                          </div>
+
+                          {/* ESTADO */}
+
+                          <span
+                            className={`status-badge ${getStatusClass(
+                              document.estado
+                            )}`}
+                          >
+
+                            <span className="status-dot"></span>
+
+                            {document.estado ||
+                              "Pendiente"}
+
+                          </span>
+
+                        </div>
+                      );
+                    }
+                  )
+
+                )}
 
               </div>
 
             </div>
 
-
-            {/* ==================================================
-                TICKETS PENDIENTES
-            =================================================== */}
+            {/* RESUMEN DEL SISTEMA */}
 
             <div className="content-card">
 
@@ -696,83 +766,97 @@ export default function DashboardPage() {
                 <div>
 
                   <span>
-                    SEGUIMIENTO
+                    RESUMEN
                   </span>
 
                   <h2>
-                    Tickets pendientes
+                    Estado del sistema
                   </h2>
 
                 </div>
 
-
                 <Link
-                  href="/dashboard/tickets"
+                  href="/dashboard/history"
                   className="view-all-link"
                 >
-                  Ver todos
+                  Ver historial
                 </Link>
 
               </div>
 
-
               <div className="tickets-list">
 
-                {pendingTickets.map((ticket) => (
+                <div className="ticket-item">
 
-                  <div
-                    key={ticket.id}
-                    className="ticket-item"
-                  >
+                  <div className="ticket-icon">
+                    ✓
+                  </div>
 
-                    {/* ICONO */}
+                  <div className="ticket-info">
 
-                    <div className="ticket-icon">
-                      □
-                    </div>
+                    <strong>
+                      Documentos registrados
+                    </strong>
 
-
-                    {/* INFORMACIÓN */}
-
-                    <div className="ticket-info">
-
-                      <strong>
-                        {ticket.title}
-                      </strong>
-
-                      <span>
-                        {ticket.id} · {ticket.date}
-                      </span>
-
-                    </div>
-
-
-                    {/* PRIORIDAD */}
-
-                    <span
-                      className={`ticket-priority ${getPriorityClass(
-                        ticket.priority
-                      )}`}
-                    >
-                      {ticket.priority}
+                    <span>
+                      {totalDocuments} documentos
+                      en el sistema
                     </span>
 
                   </div>
 
-                ))}
+                </div>
+
+                <div className="ticket-item">
+
+                  <div className="ticket-icon">
+                    ↗
+                  </div>
+
+                  <div className="ticket-info">
+
+                    <strong>
+                      Documentos enviados
+                    </strong>
+
+                    <span>
+                      {sentDocuments} documentos
+                      enviados
+                    </span>
+
+                  </div>
+
+                </div>
+
+                <div className="ticket-item">
+
+                  <div className="ticket-icon">
+                    🔐
+                  </div>
+
+                  <div className="ticket-info">
+
+                    <strong>
+                      Accesos y actividad
+                    </strong>
+
+                    <span>
+                      Consulta el historial del sistema
+                    </span>
+
+                  </div>
+
+                </div>
 
               </div>
-
-
-              {/* BOTÓN */}
 
               <div className="ticket-footer">
 
                 <Link
-                  href="/dashboard/tickets"
+                  href="/dashboard/history"
                   className="secondary-button"
                 >
-                  Ver tickets
+                  Ver actividad
                 </Link>
 
               </div>
@@ -781,10 +865,7 @@ export default function DashboardPage() {
 
           </section>
 
-
-          {/* ====================================================
-              ACCESO RÁPIDO
-          ===================================================== */}
+          {/* ACCESO RÁPIDO */}
 
           <section className="quick-actions">
 
@@ -800,9 +881,7 @@ export default function DashboardPage() {
 
             </div>
 
-
             <div className="quick-actions-grid">
-
 
               {/* NUEVO DOCUMENTO */}
 
@@ -833,7 +912,6 @@ export default function DashboardPage() {
 
               </Link>
 
-
               {/* CONSULTAR DOCUMENTOS */}
 
               <Link
@@ -852,7 +930,7 @@ export default function DashboardPage() {
                   </strong>
 
                   <span>
-                    Ver todos tus documentos
+                    Ver los documentos del sistema
                   </span>
 
                 </div>
@@ -863,26 +941,25 @@ export default function DashboardPage() {
 
               </Link>
 
-
-              {/* TICKETS */}
+              {/* HISTORIAL */}
 
               <Link
-                href="/dashboard/tickets"
+                href="/dashboard/history"
                 className="quick-action"
               >
 
                 <div className="quick-action-icon orange">
-                  □
+                  ◷
                 </div>
 
                 <div>
 
                   <strong>
-                    Gestionar tickets
+                    Consultar historial
                   </strong>
 
                   <span>
-                    Revisar solicitudes pendientes
+                    Revisar la actividad del sistema
                   </span>
 
                 </div>
@@ -896,15 +973,6 @@ export default function DashboardPage() {
             </div>
 
           </section>
-
-
-          {/* AVISO DE DEMOSTRACIÓN */}
-
-          <p className="dashboard-demo-notice">
-            Información de demostración: los datos mostrados
-            actualmente son ejemplos y serán reemplazados
-            posteriormente por información real.
-          </p>
 
         </div>
 

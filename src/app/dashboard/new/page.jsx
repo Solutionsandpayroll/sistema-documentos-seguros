@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import LogoutButton from "../../../components/LogoutButton";
+import LogoutButton from "@/components/LogoutButton";
+import "./new.css";
 
-const ALLOWED_FILE_TYPES = [
+const ALLOWED_TYPES = [
   "application/pdf",
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -17,1155 +18,1178 @@ const ALLOWED_FILE_TYPES = [
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
-// ============================================================
-// UTILIDADES
-// ============================================================
-
 function formatFileSize(bytes) {
-  if (!bytes) {
-    return "0 KB";
-  }
+  if (bytes === 0) return "0 Bytes";
 
-  if (bytes < 1024 * 1024) {
-    return `${Math.round(bytes / 1024)} KB`;
-  }
+  const sizes = ["Bytes", "KB", "MB", "GB"];
 
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  const i = Math.floor(
+    Math.log(bytes) / Math.log(1024)
+  );
+
+  return `${parseFloat(
+    (bytes / Math.pow(1024, i)).toFixed(2)
+  )} ${sizes[i]}`;
 }
 
 function getFileType(fileName) {
   const extension = fileName
     .split(".")
     .pop()
-    ?.toUpperCase();
+    .toUpperCase();
 
-  return extension || "FILE";
+  return extension;
 }
 
-function getInitials(name) {
-  if (!name) {
-    return "U";
+function generatePassword() {
+  const characters =
+    "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+
+  let password = "";
+
+  for (let i = 0; i < 10; i++) {
+    password += characters.charAt(
+      Math.floor(
+        Math.random() * characters.length
+      )
+    );
   }
 
-  const words = name
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-
-  if (words.length === 1) {
-    return words[0].substring(0, 2).toUpperCase();
-  }
-
-  return `${words[0][0]}${words[1][0]}`.toUpperCase();
+  return password;
 }
-
-// ============================================================
-// GENERAR ID DE DOCUMENTO
-// ============================================================
-
-function generateDocumentId(existingDocuments = []) {
-  const demoIds = [
-    "DOC-001",
-    "DOC-002",
-    "DOC-003",
-    "DOC-004",
-    "DOC-005",
-    "DOC-006",
-  ];
-
-  const allIds = [
-    ...demoIds,
-    ...existingDocuments.map((document) => document.id),
-  ];
-
-  const numbers = allIds
-    .map((id) => {
-      const match = String(id || "").match(/^DOC-(\d+)$/);
-
-      return match ? Number(match[1]) : 0;
-    })
-    .filter((number) => number > 0);
-
-  const nextNumber =
-    numbers.length > 0
-      ? Math.max(...numbers) + 1
-      : 1;
-
-  return `DOC-${String(nextNumber).padStart(3, "0")}`;
-}
-
-// ============================================================
-// GENERAR ID DE HISTORIAL
-// ============================================================
-
-function generateHistoryId() {
-  return `HIST-${Date.now()}-${Math.random()
-    .toString(36)
-    .substring(2, 7)}`;
-}
-
-// ============================================================
-// COMPONENTE
-// ============================================================
 
 export default function NewDocumentPage() {
   const router = useRouter();
   const fileInputRef = useRef(null);
 
-  // ============================================================
-  // USUARIO ACTUAL
-  // ============================================================
+  const [currentUser, setCurrentUser] =
+    useState(null);
 
-  const [currentUser, setCurrentUser] = useState({
-    id: "",
-    name: "Greylin Martínez",
-    email: "",
-    role: "Usuario",
-    department: "",
-  });
+  const [documentName, setDocumentName] =
+    useState("");
 
-  // ============================================================
-  // FORMULARIO
-  // ============================================================
+  const [documentType, setDocumentType] =
+    useState("");
 
-  const [documentName, setDocumentName] = useState("");
-  const [documentType, setDocumentType] = useState("");
-  const [description, setDescription] = useState("");
-  const [recipient, setRecipient] = useState("");
-  const [priority, setPriority] = useState("Normal");
+  const [description, setDescription] =
+    useState("");
 
-  const [selectedFile, setSelectedFile] = useState(null);
+  const [selectedFile, setSelectedFile] =
+    useState(null);
 
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  const [isDragging, setIsDragging] = useState(false);
+  const [companies, setCompanies] =
+    useState([]);
 
-  // ============================================================
+  const [recipients, setRecipients] =
+    useState([]);
+
+  const [selectedCompany, setSelectedCompany] =
+    useState("");
+
+  const [
+    selectedRecipient,
+    setSelectedRecipient,
+  ] = useState("");
+
+  const [password, setPassword] =
+    useState("");
+
+  const [
+    loadingCompanies,
+    setLoadingCompanies,
+  ] = useState(true);
+
+  const [
+    loadingRecipients,
+    setLoadingRecipients,
+  ] = useState(false);
+
+  const [sending, setSending] =
+    useState(false);
+
+  const [dragActive, setDragActive] =
+    useState(false);
+
+  const [message, setMessage] =
+    useState("");
+
+  const [error, setError] =
+    useState("");
+
+  // ==========================================================
   // CARGAR USUARIO ACTUAL
-  // ============================================================
+  // ==========================================================
 
   useEffect(() => {
-    try {
-      const currentUserData = localStorage.getItem(
+    const storedUser =
+      localStorage.getItem(
         "docuportal_current_user"
       );
 
-      if (!currentUserData) {
-        router.replace("/login");
-        return;
-      }
+    if (!storedUser) {
+      router.replace("/login");
+      return;
+    }
 
-      const parsedUser = JSON.parse(currentUserData);
+    try {
+      const user =
+        JSON.parse(storedUser);
 
-      setCurrentUser({
-        id: parsedUser.id || "",
-        name: parsedUser.name || "Usuario",
-        email: parsedUser.email || "",
-        role: parsedUser.role || "Usuario",
-        department: parsedUser.department || "",
-      });
+      setCurrentUser(user);
     } catch (error) {
       console.error(
-        "Error leyendo el usuario actual:",
+        "Error leyendo usuario:",
         error
-      );
-
-      localStorage.removeItem(
-        "docuportal_current_user"
       );
 
       router.replace("/login");
     }
   }, [router]);
 
-  // ============================================================
-  // VALIDAR ARCHIVO
-  // ============================================================
+  // ==========================================================
+  // CARGAR EMPRESAS
+  // ==========================================================
 
-  const validateFile = (file) => {
-    if (!file) {
-      return "No se seleccionó ningún archivo.";
+  useEffect(() => {
+    async function loadCompanies() {
+      try {
+        setLoadingCompanies(true);
+
+        const response = await fetch(
+          "/api/empresas"
+        );
+
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.message ||
+              "No se pudieron cargar las empresas."
+          );
+        }
+
+        setCompanies(data);
+      } catch (error) {
+        console.error(error);
+
+        setError(
+          "No fue posible cargar las empresas."
+        );
+      } finally {
+        setLoadingCompanies(false);
+      }
     }
 
-    if (!ALLOWED_FILE_TYPES.includes(file.type)) {
-      return "Tipo de archivo no permitido. Puedes cargar PDF, Word, Excel, JPG o PNG.";
+    loadCompanies();
+  }, []);
+
+  // ==========================================================
+  // CARGAR DESTINATARIOS
+  // ==========================================================
+
+  useEffect(() => {
+    async function loadRecipients() {
+      if (!selectedCompany) {
+        setRecipients([]);
+        setSelectedRecipient("");
+        return;
+      }
+
+      try {
+        setLoadingRecipients(true);
+        setSelectedRecipient("");
+
+        const response = await fetch(
+          "/api/destinatarios"
+        );
+
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.message ||
+              "No se pudieron cargar los destinatarios."
+          );
+        }
+
+        const filteredRecipients =
+          data.filter(
+            (recipient) =>
+              Number(
+                recipient.empresa_id
+              ) ===
+                Number(
+                  selectedCompany
+                ) &&
+              recipient.activo === true
+          );
+
+        setRecipients(
+          filteredRecipients
+        );
+      } catch (error) {
+        console.error(error);
+
+        setRecipients([]);
+
+        setError(
+          "No fue posible cargar los destinatarios."
+        );
+      } finally {
+        setLoadingRecipients(false);
+      }
+    }
+
+    loadRecipients();
+  }, [selectedCompany]);
+
+  // ==========================================================
+  // ARCHIVO
+  // ==========================================================
+
+  function processFile(file) {
+    setError("");
+    setMessage("");
+
+    if (!file) return;
+
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      setError(
+        "El tipo de archivo no está permitido. Puedes usar PDF, Word, Excel, JPG o PNG."
+      );
+
+      return;
     }
 
     if (file.size > MAX_FILE_SIZE) {
-      return "El archivo supera el tamaño máximo permitido de 10 MB.";
-    }
-
-    return "";
-  };
-
-  // ============================================================
-  // MANEJAR ARCHIVO
-  // ============================================================
-
-  const handleFile = (file) => {
-    setError("");
-    setSuccess("");
-
-    const validationError = validateFile(file);
-
-    if (validationError) {
-      setError(validationError);
-      setSelectedFile(null);
-
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
+      setError(
+        "El archivo no puede superar los 10 MB."
+      );
 
       return;
     }
 
     setSelectedFile(file);
 
-    if (!documentName.trim()) {
+    if (!documentName) {
       setDocumentName(file.name);
     }
-  };
 
-  const handleFileChange = (event) => {
-    const file = event.target.files?.[0];
+    setDocumentType(
+      getFileType(file.name)
+    );
+  }
 
-    if (!file) {
-      return;
+  function handleFileChange(event) {
+    const file =
+      event.target.files?.[0];
+
+    if (file) {
+      processFile(file);
     }
+  }
 
-    handleFile(file);
-  };
-
-  // ============================================================
-  // DRAG & DROP
-  // ============================================================
-
-  const handleDragOver = (event) => {
+  function handleDrop(event) {
     event.preventDefault();
-    setIsDragging(true);
-  };
 
-  const handleDragLeave = (event) => {
-    event.preventDefault();
-    setIsDragging(false);
-  };
+    setDragActive(false);
 
-  const handleDrop = (event) => {
-    event.preventDefault();
-    setIsDragging(false);
+    const file =
+      event.dataTransfer.files?.[0];
 
-    const file = event.dataTransfer.files?.[0];
-
-    if (!file) {
-      return;
+    if (file) {
+      processFile(file);
     }
+  }
 
-    handleFile(file);
-  };
+  // ==========================================================
+  // GENERAR CONTRASEÑA
+  // ==========================================================
 
-  // ============================================================
-  // ELIMINAR ARCHIVO
-  // ============================================================
+  function handleGeneratePassword() {
+    setPassword(
+      generatePassword()
+    );
+  }
 
-  const removeFile = () => {
-    setSelectedFile(null);
+  // ==========================================================
+  // ENVIAR DOCUMENTO
+  // ==========================================================
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+
     setError("");
-    setSuccess("");
+    setMessage("");
 
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+    if (!currentUser?.id) {
+      setError(
+        "No se encontró el usuario actual."
+      );
+
+      return;
     }
-  };
 
-  // ============================================================
-  // VALIDAR FORMULARIO
-  // ============================================================
-
-  const validateForm = () => {
     if (!documentName.trim()) {
-      return "Ingresa el nombre del documento.";
-    }
+      setError(
+        "Ingresa el nombre del documento."
+      );
 
-    if (!documentType) {
-      return "Selecciona el tipo de documento.";
-    }
-
-    if (!recipient.trim()) {
-      return "Ingresa el destinatario.";
+      return;
     }
 
     if (!selectedFile) {
-      return "Selecciona o arrastra un archivo.";
+      setError(
+        "Selecciona un archivo."
+      );
+
+      return;
     }
 
-    return "";
-  };
-
-  // ============================================================
-  // GUARDAR DOCUMENTO
-  // ============================================================
-
-  const saveDocument = (status) => {
-    const now = new Date();
-
-    // ----------------------------------------------------------
-    // DOCUMENTOS EXISTENTES
-    // ----------------------------------------------------------
-
-    const existingDocumentsData =
-      localStorage.getItem(
-        "docuportal_documents"
+    if (!selectedCompany) {
+      setError(
+        "Selecciona una empresa."
       );
 
-    let existingDocuments = [];
-
-    try {
-      existingDocuments = existingDocumentsData
-        ? JSON.parse(existingDocumentsData)
-        : [];
-
-      if (!Array.isArray(existingDocuments)) {
-        existingDocuments = [];
-      }
-    } catch (error) {
-      console.error(
-        "Error leyendo documentos existentes:",
-        error
-      );
-
-      existingDocuments = [];
+      return;
     }
 
-    // ----------------------------------------------------------
-    // ID ÚNICO
-    // ----------------------------------------------------------
-
-    const documentId =
-      generateDocumentId(existingDocuments);
-
-    // ----------------------------------------------------------
-    // NUEVO DOCUMENTO
-    // ----------------------------------------------------------
-
-    const newDocument = {
-      id: documentId,
-
-      name:
-        selectedFile?.name ||
-        documentName.trim(),
-
-      category: documentType,
-
-      recipient: recipient.trim(),
-
-      date: now.toLocaleDateString("es-CO", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      }),
-
-      status,
-
-      type: selectedFile
-        ? getFileType(selectedFile.name)
-        : "FILE",
-
-      size: selectedFile
-        ? formatFileSize(selectedFile.size)
-        : "0 KB",
-
-      description:
-        description.trim() ||
-        "Sin descripción.",
-
-      priority,
-
-      fileName: selectedFile?.name || "",
-
-      fileType: selectedFile?.type || "",
-
-      fileSize: selectedFile?.size || 0,
-
-      // --------------------------------------------------------
-      // USUARIO QUE CREÓ EL DOCUMENTO
-      // --------------------------------------------------------
-
-      userId: currentUser.id,
-
-      user: currentUser.name,
-
-      userEmail: currentUser.email,
-
-      userRole: currentUser.role,
-
-      department: currentUser.department,
-
-      createdBy: currentUser.name,
-
-      createdByRole: currentUser.role,
-
-      createdAt: now.toISOString(),
-    };
-
-    // ----------------------------------------------------------
-    // GUARDAR DOCUMENTO
-    // ----------------------------------------------------------
-
-    localStorage.setItem(
-      "docuportal_documents",
-      JSON.stringify([
-        newDocument,
-        ...existingDocuments,
-      ])
-    );
-
-    // ==========================================================
-    // HISTORIAL
-    // ==========================================================
-
-    const existingHistoryData =
-      localStorage.getItem(
-        "docuportal_history"
+    if (!selectedRecipient) {
+      setError(
+        "Selecciona un destinatario."
       );
 
-    let existingHistory = [];
-
-    try {
-      existingHistory = existingHistoryData
-        ? JSON.parse(existingHistoryData)
-        : [];
-
-      if (!Array.isArray(existingHistory)) {
-        existingHistory = [];
-      }
-    } catch (error) {
-      console.error(
-        "Error leyendo historial existente:",
-        error
-      );
-
-      existingHistory = [];
+      return;
     }
 
-    // ----------------------------------------------------------
-    // REGISTRO DE HISTORIAL
-    // ----------------------------------------------------------
+    if (!password) {
+      setError(
+        "Genera una contraseña para el documento."
+      );
 
-    const historyItem = {
-      id: generateHistoryId(),
-
-      action:
-        status === "Enviado"
-          ? "Documento enviado"
-          : "Documento guardado",
-
-      document: newDocument.name,
-
-      documentId: newDocument.id,
-
-      user: currentUser.name,
-
-      userId: currentUser.id,
-
-      userRole: currentUser.role,
-
-      userEmail: currentUser.email,
-
-      department: currentUser.department,
-
-      date: now.toLocaleDateString(
-        "es-CO",
-        {
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
-        }
-      ),
-
-      time: now.toLocaleTimeString(
-        "es-CO",
-        {
-          hour: "2-digit",
-          minute: "2-digit",
-        }
-      ),
-
-      status,
-
-      type: "Documento",
-
-      category: newDocument.category,
-
-      priority: newDocument.priority,
-
-      details:
-        status === "Enviado"
-          ? `El usuario ${currentUser.name} envió el documento "${newDocument.name}".`
-          : `El usuario ${currentUser.name} guardó el documento "${newDocument.name}" como pendiente.`,
-
-      createdAt: now.toISOString(),
-    };
-
-    // ----------------------------------------------------------
-    // GUARDAR HISTORIAL
-    // ----------------------------------------------------------
-
-    localStorage.setItem(
-      "docuportal_history",
-      JSON.stringify([
-        historyItem,
-        ...existingHistory,
-      ])
-    );
-
-    return newDocument;
-  };
-
-  // ============================================================
-  // ENVIAR / GUARDAR DOCUMENTO
-  // ============================================================
-
-  const handleSubmit = (event, action) => {
-    event.preventDefault();
-
-    setError("");
-    setSuccess("");
-
-    const validationError = validateForm();
-
-    if (validationError) {
-      setError(validationError);
       return;
     }
 
     try {
-      if (action === "draft") {
-        saveDocument("Pendiente");
+      setSending(true);
 
-        setSuccess(
-          "Documento guardado correctamente como pendiente."
+      // ==========================================
+      // 1. SUBIR ARCHIVO
+      // ==========================================
+
+      const formData =
+        new FormData();
+
+      formData.append(
+        "file",
+        selectedFile
+      );
+
+      const uploadResponse =
+        await fetch(
+          "/api/documentos/upload",
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
+
+      const uploadData =
+        await uploadResponse.json();
+
+      if (
+        !uploadResponse.ok ||
+        !uploadData.success
+      ) {
+        throw new Error(
+          uploadData.message ||
+            "No se pudo guardar físicamente el archivo."
         );
       }
 
-      if (action === "send") {
-        saveDocument("Enviado");
+      const rutaArchivo =
+        uploadData.archivo
+          .ruta_archivo;
 
-        setSuccess(
-          "Documento enviado correctamente."
+      // ==========================================
+      // 2. REGISTRAR EN NEON
+      // ==========================================
+
+      const response =
+        await fetch(
+          "/api/documentos/crear",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              nombre_archivo:
+                documentName.trim(),
+
+              ruta_archivo:
+                rutaArchivo,
+
+              empleado_id:
+                Number(
+                  currentUser.id
+                ),
+
+              empresa_id:
+                Number(
+                  selectedCompany
+                ),
+
+              destinatario_id:
+                Number(
+                  selectedRecipient
+                ),
+
+              contrasena:
+                password,
+
+              estado: "enviado",
+            }),
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (
+        !response.ok ||
+        !data.success
+      ) {
+        throw new Error(
+          data.message ||
+            "No se pudo registrar el documento."
         );
       }
 
-      setTimeout(() => {
-        router.push("/dashboard/documents");
-      }, 800);
-    } catch (saveError) {
+      // ==========================================
+      // 3. ÉXITO
+      // ==========================================
+
+      setMessage(
+        "Documento registrado correctamente."
+      );
+
+      alert(
+        `Documento registrado correctamente.\n\nContraseña del documento: ${password}`
+      );
+
+      router.push(
+        "/dashboard/documents"
+      );
+    } catch (error) {
       console.error(
-        "Error al guardar el documento:",
-        saveError
+        "Error al registrar documento:",
+        error
       );
 
       setError(
-        "No fue posible guardar el documento. Intenta nuevamente."
+        error.message ||
+          "Ocurrió un error al registrar el documento."
       );
+    } finally {
+      setSending(false);
     }
-  };
+  }
 
-  // ============================================================
-  // DATOS VISUALES
-  // ============================================================
+  // ==========================================================
+  // CANCELAR
+  // ==========================================================
 
-  const initials = getInitials(
-    currentUser.name
-  );
+  function handleCancel() {
+    router.push(
+      "/dashboard/documents"
+    );
+  }
 
-  // ============================================================
+  // ==========================================================
   // RENDER
-  // ============================================================
+  // ==========================================================
 
   return (
-    <div className="dashboard-layout">
-      {/* ============================================================
-          SIDEBAR
-      ============================================================ */}
+    <div className="new-document-page">
 
-      <aside className="sidebar">
-        <div className="sidebar-brand">
-          <div className="brand-logo">
+      {/* ====================================================
+          SIDEBAR
+      ==================================================== */}
+
+      <aside className="new-document-sidebar">
+
+        {/* LOGO */}
+
+        <div className="new-document-brand">
+          <div className="new-document-brand-icon">
             D
           </div>
 
-          <div>
-            <h2>
-              DocuPortal
-            </h2>
-
-            <span>
-              Portal documental
-            </span>
-          </div>
+          <span>
+            DOCUPORTAL
+          </span>
         </div>
 
-        <nav className="sidebar-navigation">
-          <div className="navigation-section">
-            PRINCIPAL
-          </div>
+        {/* NAVEGACIÓN */}
+
+        <nav className="new-document-navigation">
 
           <Link
             href="/dashboard"
-            className="navigation-item"
+            className="new-document-nav-item"
           >
-            <span className="navigation-icon">
+            <span className="new-document-nav-icon">
               ⌂
             </span>
 
-            <span>
-              Dashboard
-            </span>
+            Dashboard
           </Link>
 
           <Link
             href="/dashboard/documents"
-            className="navigation-item"
+            className="new-document-nav-item active"
           >
-            <span className="navigation-icon">
+            <span className="new-document-nav-icon">
               ▤
             </span>
 
-            <span>
-              Documentos
-            </span>
+            Documentos
           </Link>
 
           <Link
-            href="/dashboard/documents?status=Enviado"
-            className="navigation-item"
+            href="/dashboard/sent"
+            className="new-document-nav-item"
           >
-            <span className="navigation-icon">
+            <span className="new-document-nav-icon">
               ↗
             </span>
 
-            <span>
-              Enviados
-            </span>
+            Enviados
           </Link>
 
           <Link
-            href="/dashboard/documents?status=Recibido"
-            className="navigation-item"
+            href="/dashboard/received"
+            className="new-document-nav-item"
           >
-            <span className="navigation-icon">
+            <span className="new-document-nav-icon">
               ↙
             </span>
 
-            <span>
-              Recibidos
-            </span>
+            Recibidos
           </Link>
 
           <Link
             href="/dashboard/tickets"
-            className="navigation-item"
+            className="new-document-nav-item"
           >
-            <span className="navigation-icon">
+            <span className="new-document-nav-icon">
               □
             </span>
 
-            <span>
-              Tickets
-            </span>
+            Tickets
           </Link>
 
-          <div className="navigation-section second-section">
-            GESTIÓN
-          </div>
+          <div className="new-document-nav-separator" />
 
           <Link
             href="/dashboard/history"
-            className="navigation-item"
+            className="new-document-nav-item"
           >
-            <span className="navigation-icon">
+            <span className="new-document-nav-icon">
               ◷
             </span>
 
-            <span>
-              Historial
-            </span>
+            Historial
           </Link>
 
-          {currentUser.role === "Administrador" && (
-            <Link
-              href="/admin"
-              className="navigation-item"
-            >
-              <span className="navigation-icon">
-                ⚙
-              </span>
+          <Link
+            href="/admin"
+            className="new-document-nav-item"
+          >
+            <span className="new-document-nav-icon">
+              ⚙
+            </span>
 
-              <span>
-                Administración
-              </span>
-            </Link>
-          )}
+            Administración
+          </Link>
+
         </nav>
 
-        <div className="sidebar-footer">
-          <div className="sidebar-user">
-            <div className="user-avatar">
-              {initials}
-            </div>
+        {/* LOGOUT */}
 
-            <div className="sidebar-user-data">
-              <strong>
-                {currentUser.name}
-              </strong>
-
-              <span>
-                {currentUser.role}
-              </span>
-            </div>
-          </div>
-
-          <LogoutButton className="logout-link">
-            <span>
-              ↪
-            </span>
-
-            Cerrar sesión
-          </LogoutButton>
+        <div className="new-document-sidebar-footer">
+          <LogoutButton />
         </div>
+
       </aside>
 
-      {/* ============================================================
+      {/* ====================================================
           CONTENIDO PRINCIPAL
-      ============================================================ */}
+      ==================================================== */}
 
-      <main className="dashboard-main">
-        <header className="dashboard-header">
-          <div className="header-title">
-            <span>
-              GESTIÓN DOCUMENTAL
-            </span>
+      <main className="new-document-main">
 
-            <h1>
-              Nuevo documento
-            </h1>
-          </div>
+        <div className="new-document-content">
 
-          <div className="header-right">
-            <div className="header-user">
-              <div className="header-user-avatar">
-                {initials}
-              </div>
+          {/* HEADER */}
 
-              <div className="header-user-data">
-                <strong>
-                  {currentUser.name}
-                </strong>
+          <header className="new-document-header">
 
-                <span>
-                  {currentUser.role}
-                </span>
-              </div>
-            </div>
-          </div>
-        </header>
+            <div className="new-document-header-left">
 
-        <div className="dashboard-content new-document-content">
-          {/* ========================================================
-              INTRO
-          ======================================================== */}
-
-          <section className="documents-intro">
-            <div>
-              <span className="documents-eyebrow">
-                CENTRO DOCUMENTAL
-              </span>
-
-              <h2>
-                Crear nuevo documento
-              </h2>
+              <h1>
+                Nuevo documento
+              </h1>
 
               <p>
-                Completa la información y carga el archivo
-                que deseas registrar en el portal.
+                Registra y envía un documento
+                de forma segura.
               </p>
+
             </div>
 
-            <Link
-              href="/dashboard/documents"
-              className="documents-new-button"
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="new-document-back-button"
             >
               ← Volver a documentos
-            </Link>
-          </section>
+            </button>
 
-          {/* ========================================================
-              MENSAJES
-          ======================================================== */}
+          </header>
+
+          {/* MENSAJES */}
 
           {error && (
-            <div className="form-alert form-alert-error">
-              <span>
+            <div className="new-document-alert error">
+
+              <span className="alert-icon">
                 !
               </span>
 
               <div>
+
                 <strong>
-                  No fue posible continuar
+                  No se pudo completar la acción
                 </strong>
 
                 <p>
                   {error}
                 </p>
+
               </div>
+
             </div>
           )}
 
-          {success && (
-            <div className="form-alert form-alert-success">
-              <span>
+          {message && (
+            <div className="new-document-alert success">
+
+              <span className="alert-icon">
                 ✓
               </span>
 
               <div>
+
                 <strong>
-                  Operación realizada
+                  Documento registrado
                 </strong>
 
                 <p>
-                  {success}
+                  {message}
                 </p>
+
               </div>
+
             </div>
           )}
 
-          {/* ========================================================
-              FORMULARIO
-          ======================================================== */}
+          {/* FORMULARIO */}
 
           <form
+            onSubmit={handleSubmit}
             className="new-document-form"
-            onSubmit={(event) =>
-              handleSubmit(event, "send")
-            }
           >
-            <section className="content-card new-document-card">
-              <div className="content-card-header">
+
+            {/* ==================================================
+                INFORMACIÓN
+            ================================================== */}
+
+            <section className="new-document-card">
+
+              <div className="new-document-card-header">
+
+                <div className="section-number">
+                  01
+                </div>
+
                 <div>
-                  <span>
-                    INFORMACIÓN DEL DOCUMENTO
-                  </span>
 
                   <h2>
-                    Datos generales
+                    Información del documento
                   </h2>
+
+                  <p>
+                    Ingresa los datos básicos del
+                    documento.
+                  </p>
+
                 </div>
+
               </div>
 
-              <div className="form-grid">
-                {/* Nombre */}
+              <div className="new-document-grid">
 
-                <div className="form-group">
-                  <label htmlFor="documentName">
+                <div className="new-document-field">
+
+                  <label>
                     Nombre del documento
-                    <span>
-                      *
-                    </span>
+                    <span>*</span>
                   </label>
 
                   <input
-                    id="documentName"
                     type="text"
-                    placeholder="Ej. Contrato de prestación de servicios"
                     value={documentName}
-                    onChange={(event) =>
+                    onChange={(e) =>
                       setDocumentName(
-                        event.target.value
+                        e.target.value
                       )
                     }
+                    placeholder="Ej. Contrato laboral"
                   />
+
                 </div>
 
-                {/* Tipo */}
+                <div className="new-document-field">
 
-                <div className="form-group">
-                  <label htmlFor="documentType">
+                  <label>
                     Tipo de documento
-                    <span>
-                      *
-                    </span>
-                  </label>
-
-                  <select
-                    id="documentType"
-                    value={documentType}
-                    onChange={(event) =>
-                      setDocumentType(
-                        event.target.value
-                      )
-                    }
-                  >
-                    <option value="">
-                      Selecciona una categoría
-                    </option>
-
-                    <option value="Contrato">
-                      Contrato
-                    </option>
-
-                    <option value="Informe">
-                      Informe
-                    </option>
-
-                    <option value="Certificación">
-                      Certificación
-                    </option>
-
-                    <option value="Solicitud">
-                      Solicitud
-                    </option>
-
-                    <option value="Soporte">
-                      Soporte
-                    </option>
-
-                    <option value="Política">
-                      Política
-                    </option>
-
-                    <option value="Factura">
-                      Factura
-                    </option>
-
-                    <option value="Otro">
-                      Otro
-                    </option>
-                  </select>
-                </div>
-
-                {/* Destinatario */}
-
-                <div className="form-group">
-                  <label htmlFor="recipient">
-                    Destinatario
-                    <span>
-                      *
-                    </span>
                   </label>
 
                   <input
-                    id="recipient"
                     type="text"
-                    placeholder="Ej. Departamento Administrativo"
-                    value={recipient}
-                    onChange={(event) =>
-                      setRecipient(
-                        event.target.value
-                      )
-                    }
+                    value={documentType}
+                    readOnly
+                    placeholder="Se detectará automáticamente"
+                    className="readonly-field"
                   />
+
                 </div>
 
-                {/* Prioridad */}
-
-                <div className="form-group">
-                  <label htmlFor="priority">
-                    Prioridad
-                  </label>
-
-                  <select
-                    id="priority"
-                    value={priority}
-                    onChange={(event) =>
-                      setPriority(
-                        event.target.value
-                      )
-                    }
-                  >
-                    <option value="Normal">
-                      Normal
-                    </option>
-
-                    <option value="Alta">
-                      Alta
-                    </option>
-
-                    <option value="Urgente">
-                      Urgente
-                    </option>
-                  </select>
-                </div>
-
-                {/* Descripción */}
-
-                <div className="form-group form-group-full">
-                  <label htmlFor="description">
-                    Descripción
-                  </label>
-
-                  <textarea
-                    id="description"
-                    rows="5"
-                    placeholder="Escribe una descripción del documento..."
-                    value={description}
-                    onChange={(event) =>
-                      setDescription(
-                        event.target.value
-                      )
-                    }
-                  />
-                </div>
               </div>
+
+              <div className="new-document-field full">
+
+                <label>
+                  Descripción
+                </label>
+
+                <textarea
+                  value={description}
+                  onChange={(e) =>
+                    setDescription(
+                      e.target.value
+                    )
+                  }
+                  placeholder="Agrega una descripción opcional del documento"
+                  rows={4}
+                />
+
+              </div>
+
             </section>
 
-            {/* ======================================================
+            {/* ==================================================
                 ARCHIVO
-            ====================================================== */}
+            ================================================== */}
 
-            <section className="content-card new-document-card">
-              <div className="content-card-header">
+            <section className="new-document-card">
+
+              <div className="new-document-card-header">
+
+                <div className="section-number">
+                  02
+                </div>
+
                 <div>
-                  <span>
-                    ARCHIVO
-                  </span>
 
                   <h2>
-                    Adjuntar documento
+                    Archivo
                   </h2>
+
+                  <p>
+                    Selecciona el archivo que
+                    deseas enviar.
+                  </p>
+
                 </div>
+
               </div>
 
               <div
-                className={`file-dropzone ${
-                  isDragging
-                    ? "dragging"
+                className={`new-document-upload ${
+                  dragActive
+                    ? "drag-active"
                     : ""
                 } ${
                   selectedFile
                     ? "has-file"
                     : ""
                 }`}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragActive(true);
+                }}
+                onDragLeave={() =>
+                  setDragActive(false)
+                }
                 onDrop={handleDrop}
                 onClick={() =>
                   fileInputRef.current?.click()
                 }
               >
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
-                  onChange={handleFileChange}
-                  hidden
-                />
 
-                {!selectedFile ? (
+                <div className="upload-icon">
+                  {selectedFile
+                    ? "✓"
+                    : "↑"}
+                </div>
+
+                {selectedFile ? (
                   <>
-                    <div className="file-dropzone-icon">
-                      ↑
-                    </div>
-
                     <h3>
-                      Arrastra tu archivo aquí
+                      {selectedFile.name}
                     </h3>
 
                     <p>
-                      o haz clic para seleccionar un
-                      archivo desde tu computador
+                      {formatFileSize(
+                        selectedFile.size
+                      )}
                     </p>
 
-                    <span className="file-dropzone-info">
-                      PDF, Word, Excel, JPG o PNG · Máximo 10 MB
+                    <span className="upload-change">
+                      Haz clic para cambiar el
+                      archivo
                     </span>
                   </>
                 ) : (
-                  <div className="selected-file">
-                    <div className="selected-file-icon">
-                      {getFileType(
-                        selectedFile.name
-                      )}
-                    </div>
+                  <>
+                    <h3>
+                      Selecciona o arrastra un
+                      archivo aquí
+                    </h3>
 
-                    <div className="selected-file-info">
-                      <strong>
-                        {selectedFile.name}
-                      </strong>
+                    <p>
+                      PDF, Word, Excel, JPG o PNG
+                    </p>
 
-                      <span>
-                        {formatFileSize(
-                          selectedFile.size
-                        )}
-                      </span>
-                    </div>
+                    <span>
+                      Tamaño máximo: 10 MB
+                    </span>
+                  </>
+                )}
 
-                    <button
-                      type="button"
-                      className="remove-file-button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        removeFile();
-                      }}
-                    >
-                      Eliminar
-                    </button>
+              </div>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+                onChange={handleFileChange}
+                className="hidden-file-input"
+              />
+
+            </section>
+
+            {/* ==================================================
+                DESTINO
+            ================================================== */}
+
+            <section className="new-document-card">
+
+              <div className="new-document-card-header">
+
+                <div className="section-number">
+                  03
+                </div>
+
+                <div>
+
+                  <h2>
+                    Destino
+                  </h2>
+
+                  <p>
+                    Selecciona la empresa y el
+                    usuario autorizado.
+                  </p>
+
+                </div>
+
+              </div>
+
+              <div className="new-document-grid">
+
+                <div className="new-document-field">
+
+                  <label>
+                    Empresa
+                    <span>*</span>
+                  </label>
+
+                  <select
+                    value={selectedCompany}
+                    onChange={(e) =>
+                      setSelectedCompany(
+                        e.target.value
+                      )
+                    }
+                    disabled={
+                      loadingCompanies
+                    }
+                  >
+
+                    <option value="">
+                      {loadingCompanies
+                        ? "Cargando empresas..."
+                        : "Selecciona una empresa"}
+                    </option>
+
+                    {companies.map(
+                      (company) => (
+                        <option
+                          key={company.id}
+                          value={company.id}
+                        >
+                          {company.nombre}
+                        </option>
+                      )
+                    )}
+
+                  </select>
+
+                </div>
+
+                <div className="new-document-field">
+
+                  <label>
+                    Usuario autorizado
+                    <span>*</span>
+                  </label>
+
+                  <select
+                    value={
+                      selectedRecipient
+                    }
+                    onChange={(e) =>
+                      setSelectedRecipient(
+                        e.target.value
+                      )
+                    }
+                    disabled={
+                      !selectedCompany ||
+                      loadingRecipients
+                    }
+                  >
+
+                    <option value="">
+                      {!selectedCompany
+                        ? "Primero selecciona una empresa"
+                        : loadingRecipients
+                        ? "Cargando usuarios..."
+                        : recipients.length ===
+                          0
+                        ? "No hay usuarios autorizados"
+                        : "Selecciona un usuario"}
+                    </option>
+
+                    {recipients.map(
+                      (recipient) => (
+                        <option
+                          key={recipient.id}
+                          value={recipient.id}
+                        >
+                          {recipient.nombre} —{" "}
+                          {recipient.correo}
+                        </option>
+                      )
+                    )}
+
+                  </select>
+
+                </div>
+
+              </div>
+
+              {selectedRecipient && (
+                <div className="recipient-info">
+
+                  <div className="recipient-info-icon">
+                    ✓
+                  </div>
+
+                  <div>
+
+                    <strong>
+                      Usuario autorizado
+                    </strong>
+
+                    <p>
+                      El documento será enviado al
+                      usuario seleccionado.
+                    </p>
+
+                  </div>
+
+                </div>
+              )}
+
+            </section>
+
+            {/* ==================================================
+                SEGURIDAD
+            ================================================== */}
+
+            <section className="new-document-card security-card">
+
+              <div className="new-document-card-header">
+
+                <div className="section-number">
+                  04
+                </div>
+
+                <div>
+
+                  <h2>
+                    Seguridad
+                  </h2>
+
+                  <p>
+                    Protege el acceso al documento
+                    con una contraseña única.
+                  </p>
+
+                </div>
+
+              </div>
+
+              <div className="security-content">
+
+                <div className="security-description">
+
+                  <div className="security-icon">
+                    🔐
+                  </div>
+
+                  <div>
+
+                    <strong>
+                      Contraseña del documento
+                    </strong>
+
+                    <p>
+                      Esta contraseña será exclusiva
+                      para este archivo y deberá
+                      utilizarse para acceder a él.
+                    </p>
+
+                  </div>
+
+                </div>
+
+                <div className="password-row">
+
+                  <input
+                    type="text"
+                    value={password}
+                    readOnly
+                    placeholder="Genera una contraseña segura"
+                    className={
+                      password
+                        ? "password-generated"
+                        : ""
+                    }
+                  />
+
+                  <button
+                    type="button"
+                    onClick={
+                      handleGeneratePassword
+                    }
+                    className="generate-password-button"
+                  >
+                    {password
+                      ? "Generar otra"
+                      : "Generar contraseña"}
+                  </button>
+
+                </div>
+
+                {password && (
+                  <div className="password-notice">
+
+                    <span>
+                      ✓
+                    </span>
+
+                    Contraseña generada. Recuerda
+                    conservarla para compartirla
+                    con el usuario autorizado.
+
                   </div>
                 )}
+
               </div>
+
             </section>
 
-            {/* ======================================================
-                BOTONES
-            ====================================================== */}
+            {/* ==================================================
+                ACCIONES
+            ================================================== */}
 
-            <section className="new-document-actions">
-              <Link
-                href="/dashboard/documents"
-                className="new-document-cancel"
+            <div className="new-document-actions">
+
+              <button
+                type="button"
+                onClick={handleCancel}
+                disabled={sending}
+                className="cancel-button"
               >
                 Cancelar
-              </Link>
+              </button>
 
-              <div className="new-document-action-group">
-                <button
-                  type="button"
-                  className="new-document-draft"
-                  onClick={(event) =>
-                    handleSubmit(
-                      event,
-                      "draft"
-                    )
-                  }
-                >
-                  Guardar como pendiente
-                </button>
+              <button
+                type="submit"
+                disabled={sending}
+                className="submit-button"
+              >
 
-                <button
-                  type="submit"
-                  className="new-document-submit"
-                >
-                  Enviar documento
+                {sending ? (
+                  <>
+                    <span className="button-spinner" />
+                    Registrando...
+                  </>
+                ) : (
+                  <>
+                    Enviar documento
+                    <span>→</span>
+                  </>
+                )}
 
-                  <span>
-                    →
-                  </span>
-                </button>
-              </div>
-            </section>
+              </button>
+
+            </div>
+
           </form>
 
-          {/* ========================================================
-              AVISO
-          ======================================================== */}
-
-          <p className="documents-demo-notice">
-            Por ahora, la información del documento y su
-            actividad se almacenan temporalmente en este
-            navegador mediante localStorage. El archivo físico
-            todavía no se almacena en un servidor.
-          </p>
         </div>
+
       </main>
+
     </div>
   );
 }

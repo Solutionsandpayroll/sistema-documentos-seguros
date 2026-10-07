@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import "./documents.css";
+import "../documents/documents.css";
+import "./sent.css";
 
-export default function DocumentsPage() {
+export default function SentDocumentsPage() {
   const [currentUser, setCurrentUser] = useState({
     name: "Administrador",
     role: "Administrador",
@@ -35,18 +36,13 @@ export default function DocumentsPage() {
         });
       }
     } catch (error) {
-      console.error(
-        "Error cargando usuario:",
-        error
-      );
+      console.error(error);
     }
   }, []);
 
   useEffect(() => {
     const loadDocuments = async () => {
       try {
-        setLoading(true);
-
         const response = await fetch(
           "/api/documentos",
           {
@@ -54,24 +50,23 @@ export default function DocumentsPage() {
           }
         );
 
-        if (!response.ok) {
-          throw new Error(
-            "Error consultando los documentos"
+        const data =
+          await response.json();
+
+        if (Array.isArray(data)) {
+          setDocuments(
+            data.filter(
+              (document) =>
+                document.estado?.toLowerCase() ===
+                "enviado"
+            )
           );
         }
-
-        const data = await response.json();
-
-        setDocuments(
-          Array.isArray(data) ? data : []
-        );
       } catch (error) {
         console.error(
-          "Error cargando documentos:",
+          "Error cargando enviados:",
           error
         );
-
-        setDocuments([]);
       } finally {
         setLoading(false);
       }
@@ -100,21 +95,21 @@ export default function DocumentsPage() {
     ).toUpperCase();
   };
 
-  const getFileType = (fileName) => {
-    if (!fileName) return "FILE";
+  const getFileType = (name) => {
+    if (!name) return "FILE";
 
-    const parts = fileName.split(".");
+    const parts = name.split(".");
 
-    if (parts.length < 2) return "FILE";
-
-    return parts[
-      parts.length - 1
-    ].toUpperCase();
+    return parts.length > 1
+      ? parts[
+          parts.length - 1
+        ].toUpperCase()
+      : "FILE";
   };
 
-  const getFileIconClass = (fileName) => {
+  const getFileClass = (name) => {
     const extension =
-      fileName
+      name
         ?.split(".")
         .pop()
         ?.toLowerCase();
@@ -129,52 +124,25 @@ export default function DocumentsPage() {
     }
 
     if (
-      extension === "docx" ||
-      extension === "doc"
+      extension === "doc" ||
+      extension === "docx"
     ) {
       return "word";
-    }
-
-    if (
-      extension === "jpg" ||
-      extension === "jpeg" ||
-      extension === "png"
-    ) {
-      return "image";
     }
 
     return "file";
   };
 
-  const getStatusClass = (status) => {
-    const normalized =
-      status?.toLowerCase();
-
-    if (normalized === "enviado") {
-      return "sent";
-    }
-
-    if (normalized === "recibido") {
-      return "received";
-    }
-
-    return "pending";
-  };
-
   const formatDate = (date) => {
     if (!date) return "";
 
-    try {
-      return new Date(
-        date
-      ).toLocaleDateString("es-CO", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      });
-    } catch {
-      return "";
-    }
+    return new Date(
+      date
+    ).toLocaleDateString("es-CO", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
   };
 
   const filteredDocuments =
@@ -189,9 +157,6 @@ export default function DocumentsPage() {
         document.empresa
           ?.toLowerCase()
           .includes(text) ||
-        document.empleado
-          ?.toLowerCase()
-          .includes(text) ||
         document.destinatario
           ?.toLowerCase()
           .includes(text) ||
@@ -201,30 +166,11 @@ export default function DocumentsPage() {
       );
     });
 
-  const totalDocuments =
-    documents.length;
-
-  const sentDocuments =
-    documents.filter(
-      (document) =>
-        document.estado?.toLowerCase() ===
-        "enviado"
-    ).length;
-
-  const receivedDocuments =
-    documents.filter(
-      (document) =>
-        document.estado?.toLowerCase() ===
-        "recibido"
-    ).length;
-
   const userInitials =
     getInitials(currentUser.name);
 
   return (
     <div className="documents-layout">
-
-      {/* SIDEBAR */}
 
       <aside className="documents-sidebar">
 
@@ -236,7 +182,6 @@ export default function DocumentsPage() {
 
           <div>
             <h2>DocuPortal</h2>
-
             <span>
               Portal documental
             </span>
@@ -254,65 +199,35 @@ export default function DocumentsPage() {
             href="/dashboard"
             className="documents-navigation-item"
           >
-            <span className="documents-navigation-icon">
-              ⌂
-            </span>
-
-            <span>
-              Dashboard
-            </span>
+            ⌂ <span>Dashboard</span>
           </Link>
 
           <Link
             href="/dashboard/documents"
-            className="documents-navigation-item active"
+            className="documents-navigation-item"
           >
-            <span className="documents-navigation-icon">
-              ▤
-            </span>
-
-            <span>
-              Documentos
-            </span>
+            ▤ <span>Documentos</span>
           </Link>
 
           <Link
             href="/dashboard/sent"
-            className="documents-navigation-item"
+            className="documents-navigation-item active"
           >
-            <span className="documents-navigation-icon">
-              ↗
-            </span>
-
-            <span>
-              Enviados
-            </span>
+            ↗ <span>Enviados</span>
           </Link>
 
           <Link
             href="/dashboard/received"
             className="documents-navigation-item"
           >
-            <span className="documents-navigation-icon">
-              ↙
-            </span>
-
-            <span>
-              Recibidos
-            </span>
+            ↙ <span>Recibidos</span>
           </Link>
 
           <Link
             href="/dashboard/tickets"
             className="documents-navigation-item"
           >
-            <span className="documents-navigation-icon">
-              □
-            </span>
-
-            <span>
-              Tickets
-            </span>
+            □ <span>Tickets</span>
           </Link>
 
           <div className="documents-navigation-section documents-second-section">
@@ -323,13 +238,7 @@ export default function DocumentsPage() {
             href="/dashboard/history"
             className="documents-navigation-item"
           >
-            <span className="documents-navigation-icon">
-              ◷
-            </span>
-
-            <span>
-              Historial
-            </span>
+            ◷ <span>Historial</span>
           </Link>
 
           {currentUser.role ===
@@ -338,13 +247,7 @@ export default function DocumentsPage() {
               href="/admin"
               className="documents-navigation-item"
             >
-              <span className="documents-navigation-icon">
-                ⚙
-              </span>
-
-              <span>
-                Administración
-              </span>
+              ⚙ <span>Administración</span>
             </Link>
           )}
 
@@ -383,31 +286,27 @@ export default function DocumentsPage() {
                 "/login";
             }}
           >
-            <span>
-              ↪
-            </span>
-
-            Cerrar sesión
+            ↪ Cerrar sesión
           </button>
 
         </div>
 
       </aside>
 
-      {/* CONTENIDO */}
-
       <main className="documents-main">
 
         <header className="documents-top-header">
 
           <div>
+
             <span>
               PORTAL DOCUMENTAL
             </span>
 
             <h1>
-              Documentos
+              Documentos enviados
             </h1>
+
           </div>
 
           <div className="documents-header-user">
@@ -439,16 +338,17 @@ export default function DocumentsPage() {
             <div>
 
               <span className="page-eyebrow">
-                GESTIÓN DOCUMENTAL
+                DOCUMENTOS ENVIADOS
               </span>
 
               <h2>
-                Todos los documentos
+                Enviados
               </h2>
 
               <p>
-                Consulta los documentos
-                registrados en el sistema.
+                Consulta los documentos que
+                han sido enviados desde el
+                sistema.
               </p>
 
             </div>
@@ -462,50 +362,6 @@ export default function DocumentsPage() {
 
           </section>
 
-          {/* ESTADÍSTICAS */}
-
-          <section className="document-stats">
-
-            <div className="document-stat">
-
-              <span className="document-stat-label">
-                Total documentos
-              </span>
-
-              <strong>
-                {totalDocuments}
-              </strong>
-
-            </div>
-
-            <div className="document-stat">
-
-              <span className="document-stat-label">
-                Enviados
-              </span>
-
-              <strong>
-                {sentDocuments}
-              </strong>
-
-            </div>
-
-            <div className="document-stat">
-
-              <span className="document-stat-label">
-                Recibidos
-              </span>
-
-              <strong>
-                {receivedDocuments}
-              </strong>
-
-            </div>
-
-          </section>
-
-          {/* BUSCADOR */}
-
           <section className="documents-filters">
 
             <div className="search-container">
@@ -516,7 +372,7 @@ export default function DocumentsPage() {
 
               <input
                 type="text"
-                placeholder="Buscar documento, empresa, usuario..."
+                placeholder="Buscar documento, empresa o usuario..."
                 value={search}
                 onChange={(event) =>
                   setSearch(
@@ -529,8 +385,6 @@ export default function DocumentsPage() {
 
           </section>
 
-          {/* TABLA */}
-
           <section className="documents-table-card">
 
             <div className="table-header">
@@ -538,18 +392,18 @@ export default function DocumentsPage() {
               <div>
 
                 <span>
-                  LISTADO GENERAL
+                  LISTADO
                 </span>
 
                 <h2>
-                  Documentos registrados
+                  Documentos enviados
                 </h2>
 
               </div>
 
               <span className="results-count">
                 {filteredDocuments.length}{" "}
-                resultado
+                documento
                 {filteredDocuments.length !==
                 1
                   ? "s"
@@ -575,16 +429,16 @@ export default function DocumentsPage() {
               <div className="documents-empty">
 
                 <div className="empty-icon">
-                  📁
+                  📤
                 </div>
 
                 <h3>
-                  No hay documentos
+                  No hay documentos enviados
                 </h3>
 
                 <p>
-                  No se encontraron documentos
-                  registrados.
+                  Los documentos enviados
+                  aparecerán aquí.
                 </p>
 
               </div>
@@ -606,15 +460,11 @@ export default function DocumentsPage() {
                       </th>
 
                       <th>
-                        EMPLEADO
+                        DESTINATARIO
                       </th>
 
                       <th>
-                        USUARIO
-                      </th>
-
-                      <th>
-                        ESTADO
+                        CORREO
                       </th>
 
                       <th>
@@ -628,129 +478,98 @@ export default function DocumentsPage() {
                   <tbody>
 
                     {filteredDocuments.map(
-                      (document) => {
+                      (document) => (
 
-                        const fileType =
-                          getFileType(
-                            document.nombre_archivo
-                          );
+                        <tr
+                          key={
+                            document.id
+                          }
+                        >
 
-                        const iconClass =
-                          getFileIconClass(
-                            document.nombre_archivo
-                          );
+                          <td>
 
-                        return (
-                          <tr
-                            key={
-                              document.id
-                            }
-                          >
+                            <div className="document-cell">
 
-                            <td>
-
-                              <div className="document-cell">
-
-                                <div
-                                  className={`file-icon ${iconClass}`}
-                                >
-                                  {fileType}
-                                </div>
-
-                                <div>
-
-                                  <strong>
-                                    {
-                                      document.nombre_archivo
-                                    }
-                                  </strong>
-
-                                  <span>
-                                    DOC-
-                                    {String(
-                                      document.id
-                                    ).padStart(
-                                      3,
-                                      "0"
-                                    )}
-                                  </span>
-
-                                </div>
-
+                              <div
+                                className={`file-icon ${getFileClass(
+                                  document.nombre_archivo
+                                )}`}
+                              >
+                                {getFileType(
+                                  document.nombre_archivo
+                                )}
                               </div>
 
-                            </td>
-
-                            <td>
-
-                              <span className="company-name">
-                                {document.empresa ||
-                                  "Sin empresa"}
-                              </span>
-
-                            </td>
-
-                            <td>
-
-                              <div className="person-cell">
+                              <div>
 
                                 <strong>
-                                  {document.empleado ||
-                                    "Sin empleado"}
-                                </strong>
-
-                              </div>
-
-                            </td>
-
-                            <td>
-
-                              <div className="person-cell">
-
-                                <strong>
-                                  {document.destinatario ||
-                                    "Sin usuario"}
+                                  {
+                                    document.nombre_archivo
+                                  }
                                 </strong>
 
                                 <span>
-                                  {document.correo ||
-                                    "Sin correo"}
+                                  DOC-
+                                  {String(
+                                    document.id
+                                  ).padStart(
+                                    3,
+                                    "0"
+                                  )}
                                 </span>
 
                               </div>
 
-                            </td>
+                            </div>
 
-                            <td>
+                          </td>
 
-                              <span
-                                className={`document-status ${getStatusClass(
-                                  document.estado
-                                )}`}
-                              >
+                          <td>
+                            <span className="company-name">
+                              {document.empresa ||
+                                "Sin empresa"}
+                            </span>
+                          </td>
 
-                                <span className="status-circle"></span>
+                          <td>
 
-                                {document.estado ||
-                                  "Pendiente"}
+                            <div className="person-cell">
 
+                              <strong>
+                                {document.destinatario ||
+                                  "Sin destinatario"}
+                              </strong>
+
+                            </div>
+
+                          </td>
+
+                          <td>
+
+                            <div className="person-cell">
+
+                              <span>
+                                {document.correo ||
+                                  "Sin correo"}
                               </span>
 
-                            </td>
+                            </div>
 
-                            <td>
+                          </td>
 
-                              <span className="document-date">
-                                {formatDate(
-                                  document.creado_en
-                                )}
-                              </span>
+                          <td>
 
-                            </td>
+                            <span className="document-date">
+                              {formatDate(
+                                document.creado_en
+                              )}
+                            </span>
 
-                          </tr>
-                        );
-                      }
+                          </td>
+
+                        </tr>
+
+                      )
                     )}
 
                   </tbody>

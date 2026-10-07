@@ -1,0 +1,713 @@
+/* ============================================================
+   NUEVO DOCUMENTO
+============================================================ */
+
+.new-document-page {
+  min-height: 100vh;
+  background: #f7f8fa;
+  color: #1f2937;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* ============================================================
+   SIDEBAR
+============================================================ */
+
+.new-document-sidebar {
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 250px;
+  background: #ffffff;
+  border-right: 1px solid #e5e7eb;
+  padding: 24px 16px;
+  box-sizing: border-box;
+  z-index: 10;
+}
+
+.new-document-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px;
+  margin-bottom: 35px;
+}
+
+.new-document-brand-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: #2457d6;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.new-document-brand span {
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+}
+
+/* ============================================================
+   NAVEGACIÓN
+============================================================ */
+
+.new-document-navigation {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.new-document-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border-radius: 8px;
+  color: #4b5563;
+  text-decoration: none;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.new-document-nav-item:hover {
+  background: #eef4ff;
+  color: #2457d6;
+}
+
+.new-document-nav-item.active {
+  background: #eef4ff;
+  color: #2457d6;
+  font-weight: 600;
+}
+
+.new-document-nav-icon {
+  width: 18px;
+  min-width: 18px;
+  text-align: center;
+  font-size: 15px;
+}
+
+.new-document-nav-separator {
+  height: 1px;
+  background: #e5e7eb;
+  margin: 12px 8px;
+}
+
+.new-document-sidebar-footer {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 24px;
+}
+
+/* ============================================================
+   CONTENIDO
+============================================================ */
+
+.new-document-main {
+  margin-left: 250px;
+  min-height: 100vh;
+  padding: 32px 40px 50px;
+  box-sizing: border-box;
+}
+
+.new-document-content {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+/* ============================================================
+   ENCABEZADO
+============================================================ */
+
+.new-document-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 28px;
+}
+
+.new-document-header-left h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  color: #111827;
+  letter-spacing: -0.5px;
+}
+
+.new-document-header-left p {
+  margin: 7px 0 0;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.new-document-back-button {
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #2457d6;
+  padding: 10px 15px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.new-document-back-button:hover {
+  background: #eef4ff;
+  border-color: #b8c9f5;
+}
+
+/* ============================================================
+   ALERTAS
+============================================================ */
+
+.new-document-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  border-radius: 9px;
+  font-size: 13px;
+}
+
+.new-document-alert.error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+}
+
+.new-document-alert.success {
+  background: #eef4ff;
+  border: 1px solid #c7d7ff;
+  color: #2457d6;
+}
+
+.new-document-alert .alert-icon {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.new-document-alert strong {
+  display: block;
+  font-size: 13px;
+}
+
+.new-document-alert p {
+  margin: 4px 0 0;
+  font-size: 12px;
+}
+
+/* ============================================================
+   FORMULARIO
+============================================================ */
+
+.new-document-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ============================================================
+   TARJETAS
+============================================================ */
+
+.new-document-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+.new-document-card-header {
+  margin-bottom: 20px;
+}
+
+.new-document-card-header h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.new-document-card-header p {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+/* ============================================================
+   NÚMERO DE SECCIÓN
+============================================================ */
+
+.section-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin-bottom: 10px;
+  border-radius: 8px;
+  background: #eef4ff;
+  color: #2457d6;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* ============================================================
+   CAMPOS
+============================================================ */
+
+.new-document-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+.new-document-field {
+  min-width: 0;
+}
+
+.new-document-field.full {
+  grid-column: 1 / -1;
+}
+
+.new-document-field label {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.new-document-field label span {
+  color: #dc2626;
+  margin-left: 3px;
+}
+
+.new-document-field input,
+.new-document-field select,
+.new-document-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #d1d5db;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #1f2937;
+  font-family: inherit;
+  font-size: 13px;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.new-document-field input,
+.new-document-field select {
+  height: 42px;
+  padding: 0 12px;
+}
+
+.new-document-field textarea {
+  min-height: 90px;
+  padding: 11px 12px;
+  resize: vertical;
+}
+
+.new-document-field input:focus,
+.new-document-field select:focus,
+.new-document-field textarea:focus {
+  border-color: #2457d6;
+  box-shadow: 0 0 0 3px rgba(36, 87, 214, 0.08);
+}
+
+.new-document-field input::placeholder,
+.new-document-field textarea::placeholder {
+  color: #9ca3af;
+}
+
+.readonly-field {
+  background: #f9fafb !important;
+  color: #6b7280 !important;
+}
+
+/* ============================================================
+   ARCHIVO
+============================================================ */
+
+.new-document-upload {
+  border: 1px dashed #b8c9f5;
+  border-radius: 9px;
+  background: #f8faff;
+  padding: 32px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.new-document-upload:hover {
+  background: #eef4ff;
+  border-color: #2457d6;
+}
+
+.new-document-upload.drag-active {
+  background: #eef4ff;
+  border-color: #2457d6;
+}
+
+.new-document-upload.has-file {
+  background: #f8faff;
+  border-style: solid;
+  border-color: #b8c9f5;
+}
+
+.upload-icon {
+  width: 44px;
+  height: 44px;
+  margin: 0 auto 10px;
+  border-radius: 9px;
+  background: #eef4ff;
+  color: #2457d6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.new-document-upload h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  word-break: break-word;
+}
+
+.new-document-upload p {
+  margin: 6px 0;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.new-document-upload > span {
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.new-document-upload .upload-change {
+  display: inline-block;
+  margin-top: 7px;
+  font-size: 12px;
+  color: #2457d6;
+  font-weight: 600;
+}
+
+.hidden-file-input {
+  display: none;
+}
+
+/* ============================================================
+   DESTINATARIO
+============================================================ */
+
+.recipient-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 11px 13px;
+  border-radius: 7px;
+  background: #f8faff;
+  border: 1px solid #c7d7ff;
+}
+
+.recipient-info-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #eef4ff;
+  color: #2457d6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.recipient-info strong {
+  display: block;
+  font-size: 12px;
+  color: #2457d6;
+}
+
+.recipient-info p {
+  margin: 3px 0 0;
+  font-size: 11px;
+  color: #6b7280;
+}
+
+/* ============================================================
+   SEGURIDAD
+============================================================ */
+
+.security-card {
+  background: #ffffff;
+}
+
+.security-content {
+  background: #f8faff;
+  border: 1px solid #c7d7ff;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.security-description {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  margin-bottom: 15px;
+}
+
+.security-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: #eef4ff;
+  color: #2457d6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.security-description strong {
+  display: block;
+  font-size: 13px;
+  color: #2457d6;
+}
+
+.security-description p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+.password-row {
+  display: flex;
+  gap: 9px;
+}
+
+.password-row input {
+  flex: 1;
+  min-width: 0;
+  height: 42px;
+  box-sizing: border-box;
+  border: 1px solid #d1d5db;
+  border-radius: 7px;
+  padding: 0 12px;
+  background: #ffffff;
+  color: #2457d6;
+  font-family: monospace;
+  font-size: 13px;
+  letter-spacing: 1px;
+  outline: none;
+}
+
+.password-row input:focus {
+  border-color: #2457d6;
+}
+
+.password-row input.password-generated {
+  font-weight: 700;
+}
+
+.generate-password-button {
+  height: 42px;
+  padding: 0 16px;
+  border: 1px solid #2457d6;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #2457d6;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.generate-password-button:hover {
+  background: #eef4ff;
+  border-color: #2457d6;
+}
+
+/* ============================================================
+   AVISO CONTRASEÑA
+============================================================ */
+
+.password-notice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 9px;
+  color: #6b7280;
+  font-size: 11px;
+}
+
+.password-notice span {
+  color: #2457d6;
+  font-weight: 700;
+}
+
+/* ============================================================
+   BOTONES
+============================================================ */
+
+.new-document-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 2px;
+}
+
+.cancel-button,
+.submit-button {
+  height: 42px;
+  padding: 0 18px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cancel-button {
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #374151;
+}
+
+.cancel-button:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+
+.submit-button {
+  min-width: 155px;
+  border: none;
+  background: #2457d6;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+}
+
+.submit-button:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.submit-button:disabled,
+.cancel-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* ============================================================
+   SPINNER
+============================================================ */
+
+.button-spinner {
+  width: 13px;
+  height: 13px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ============================================================
+   RESPONSIVE
+============================================================ */
+
+@media (max-width: 900px) {
+  .new-document-sidebar {
+    width: 220px;
+  }
+
+  .new-document-main {
+    margin-left: 220px;
+    padding: 28px 25px 40px;
+  }
+
+  .new-document-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .new-document-field.full {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 700px) {
+  .new-document-sidebar {
+    position: relative;
+    width: 100%;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .new-document-sidebar-footer {
+    position: static;
+    margin-top: 20px;
+  }
+
+  .new-document-main {
+    margin-left: 0;
+    padding: 24px 16px 35px;
+  }
+
+  .new-document-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  .new-document-header-left h1 {
+    font-size: 24px;
+  }
+
+  .new-document-back-button {
+    width: 100%;
+  }
+
+  .password-row {
+    flex-direction: column;
+  }
+
+  .generate-password-button {
+    width: 100%;
+  }
+
+  .new-document-actions {
+    flex-direction: column-reverse;
+  }
+
+  .cancel-button,
+  .submit-button {
+    width: 100%;
+  }
+}
