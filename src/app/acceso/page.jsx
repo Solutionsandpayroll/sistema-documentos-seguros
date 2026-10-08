@@ -1,19 +1,34 @@
 "use client";
 
-import { useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import {
+  Suspense,
+  useState,
+} from "react";
 
-export default function AccesoPage() {
+import {
+  useSearchParams,
+  useRouter,
+} from "next/navigation";
+
+function AccesoContenido() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const documentoId = searchParams.get("documento");
+  const documentoId =
+    searchParams.get("documento");
 
   const [correo, setCorreo] = useState("");
-  const [contrasena, setContrasena] = useState("");
-  const [cargando, setCargando] = useState(false);
-  const [mensaje, setMensaje] = useState("");
-  const [error, setError] = useState("");
+  const [contrasena, setContrasena] =
+    useState("");
+
+  const [cargando, setCargando] =
+    useState(false);
+
+  const [mensaje, setMensaje] =
+    useState("");
+
+  const [error, setError] =
+    useState("");
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -43,19 +58,25 @@ export default function AccesoPage() {
         {
           method: "POST",
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type":
+              "application/json",
           },
           body: JSON.stringify({
-            documento_id: Number(documentoId),
+            documento_id:
+              Number(documentoId),
             correo,
             contrasena,
           }),
         }
       );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
-      if (!response.ok || !data.success) {
+      if (
+        !response.ok ||
+        !data.success
+      ) {
         setError(
           data.message ||
             "No fue posible validar el acceso."
@@ -69,7 +90,9 @@ export default function AccesoPage() {
 
       sessionStorage.setItem(
         "documento_autorizado",
-        JSON.stringify(data.documento)
+        JSON.stringify(
+          data.documento
+        )
       );
 
       router.push(
@@ -137,7 +160,11 @@ export default function AccesoPage() {
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: "20px" }}>
+          <div
+            style={{
+              marginBottom: "20px",
+            }}
+          >
             <label
               style={{
                 display: "block",
@@ -153,22 +180,30 @@ export default function AccesoPage() {
               type="email"
               value={correo}
               onChange={(e) =>
-                setCorreo(e.target.value)
+                setCorreo(
+                  e.target.value
+                )
               }
               placeholder="correo@ejemplo.com"
               disabled={cargando}
               style={{
                 width: "100%",
                 padding: "12px",
-                border: "1px solid #d1d5db",
+                border:
+                  "1px solid #d1d5db",
                 borderRadius: "8px",
                 fontSize: "15px",
-                boxSizing: "border-box",
+                boxSizing:
+                  "border-box",
               }}
             />
           </div>
 
-          <div style={{ marginBottom: "20px" }}>
+          <div
+            style={{
+              marginBottom: "20px",
+            }}
+          >
             <label
               style={{
                 display: "block",
@@ -184,17 +219,21 @@ export default function AccesoPage() {
               type="password"
               value={contrasena}
               onChange={(e) =>
-                setContrasena(e.target.value)
+                setContrasena(
+                  e.target.value
+                )
               }
               placeholder="Ingresa la contraseña"
               disabled={cargando}
               style={{
                 width: "100%",
                 padding: "12px",
-                border: "1px solid #d1d5db",
+                border:
+                  "1px solid #d1d5db",
                 borderRadius: "8px",
                 fontSize: "15px",
-                boxSizing: "border-box",
+                boxSizing:
+                  "border-box",
               }}
             />
           </div>
@@ -205,7 +244,8 @@ export default function AccesoPage() {
                 marginBottom: "20px",
                 padding: "12px",
                 borderRadius: "8px",
-                background: "#fee2e2",
+                background:
+                  "#fee2e2",
                 color: "#b91c1c",
                 fontSize: "14px",
               }}
@@ -220,7 +260,8 @@ export default function AccesoPage() {
                 marginBottom: "20px",
                 padding: "12px",
                 borderRadius: "8px",
-                background: "#dcfce7",
+                background:
+                  "#dcfce7",
                 color: "#166534",
                 fontSize: "14px",
               }}
@@ -244,7 +285,9 @@ export default function AccesoPage() {
               cursor: cargando
                 ? "not-allowed"
                 : "pointer",
-              opacity: cargando ? 0.7 : 1,
+              opacity: cargando
+                ? 0.7
+                : 1,
             }}
           >
             {cargando
@@ -254,5 +297,31 @@ export default function AccesoPage() {
         </form>
       </div>
     </main>
+  );
+}
+
+export default function AccesoPage() {
+  return (
+    <Suspense
+      fallback={
+        <main
+          style={{
+            minHeight: "100vh",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            background: "#f4f6f8",
+            fontFamily:
+              "Arial, sans-serif",
+          }}
+        >
+          <p>
+            Cargando acceso...
+          </p>
+        </main>
+      }
+    >
+      <AccesoContenido />
+    </Suspense>
   );
 }
