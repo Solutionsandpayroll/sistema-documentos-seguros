@@ -20,55 +20,6 @@ const PRIORITIES = [
 ];
 
 // ============================================================
-// TICKETS DEMO
-// ============================================================
-// Estos son los tickets que también aparecen inicialmente
-// en la lista de tickets.
-// ============================================================
-
-const DEMO_TICKET_IDS = [
-  "TKT-001",
-  "TKT-002",
-  "TKT-003",
-  "TKT-004",
-];
-
-// ============================================================
-// GENERAR ID DE TICKET
-// ============================================================
-
-function generateTicketId(existingTickets) {
-  const allIds = [
-    ...DEMO_TICKET_IDS,
-    ...existingTickets.map(
-      (ticket) => ticket.id
-    ),
-  ];
-
-  const numbers = allIds
-    .map((id) => {
-      const match = String(id || "").match(
-        /^TKT-(\d+)$/
-      );
-
-      return match ? Number(match[1]) : 0;
-    })
-    .filter(
-      (number) => !Number.isNaN(number)
-    );
-
-  const nextNumber =
-    numbers.length > 0
-      ? Math.max(...numbers) + 1
-      : 1;
-
-  return `TKT-${String(nextNumber).padStart(
-    3,
-    "0"
-  )}`;
-}
-
-// ============================================================
 // OBTENER INICIALES
 // ============================================================
 
@@ -104,7 +55,7 @@ export default function NewTicketPage() {
 
   const [currentUser, setCurrentUser] = useState({
     id: "",
-    name: "Greylin Martínez",
+    name: "Usuario",
     email: "",
     role: "Usuario",
     department: "",
@@ -115,10 +66,13 @@ export default function NewTicketPage() {
   // ============================================================
 
   const [subject, setSubject] = useState("");
+
   const [category, setCategory] =
     useState("Soporte");
+
   const [priority, setPriority] =
     useState("Normal");
+
   const [description, setDescription] =
     useState("");
 
@@ -126,54 +80,73 @@ export default function NewTicketPage() {
     useState(null);
 
   const [error, setError] = useState("");
+
   const [success, setSuccess] =
     useState(false);
 
   const [isDragging, setIsDragging] =
     useState(false);
 
+  const [isSaving, setIsSaving] =
+    useState(false);
+
   // ============================================================
-  // CARGAR USUARIO ACTUAL
+  // CARGAR USUARIO ACTUAL DESDE LA SESIÓN
   // ============================================================
 
   useEffect(() => {
-    try {
-      const currentUserData =
-        localStorage.getItem(
-          "docuportal_current_user"
+    const loadCurrentUser = async () => {
+      try {
+        const response = await fetch(
+          "/api/usuarios/sesion",
+          {
+            method: "GET",
+            cache: "no-store",
+          }
         );
 
-      if (!currentUserData) {
+        const data =
+          await response.json();
+
+        if (
+          !response.ok ||
+          !data.success ||
+          !data.usuario
+        ) {
+          router.replace("/login");
+          return;
+        }
+
+        const usuario = data.usuario;
+
+        setCurrentUser({
+          id: usuario.id || "",
+
+          name:
+            usuario.nombre ||
+            "Usuario",
+
+          email:
+            usuario.correo ||
+            "",
+
+          role:
+            usuario.rol ||
+            "Usuario",
+
+          department: "",
+        });
+      } catch (error) {
+        console.error(
+          "Error obteniendo la sesión:",
+          error
+        );
+
         router.replace("/login");
-        return;
       }
+    };
 
-      const parsedUser =
-        JSON.parse(currentUserData);
-
-      setCurrentUser({
-        id: parsedUser.id || "",
-        name:
-          parsedUser.name || "Usuario",
-        email:
-          parsedUser.email || "",
-        role:
-          parsedUser.role || "Usuario",
-        department:
-          parsedUser.department || "",
-      });
-    } catch (error) {
-      console.error(
-        "Error leyendo el usuario actual:",
-        error
-      );
-
-      localStorage.removeItem(
-        "docuportal_current_user"
-      );
-
-      router.replace("/login");
-    }
+    loadCurrentUser();
   }, [router]);
 
   // ============================================================
@@ -255,10 +228,11 @@ export default function NewTicketPage() {
   // CREAR TICKET
   // ============================================================
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
     setError("");
+    setSuccess(false);
 
     // ==========================================================
     // VALIDACIONES
@@ -280,267 +254,121 @@ export default function NewTicketPage() {
       return;
     }
 
+    if (!currentUser.name) {
+      setError(
+        "No se pudo identificar al usuario actual."
+      );
+
+      return;
+    }
+
     try {
-      // ========================================================
-      // LEER TICKETS EXISTENTES
-      // ========================================================
-
-      const existingTicketsData =
-        localStorage.getItem(
-          "docuportal_tickets"
-        );
-
-      const existingTickets =
-        existingTicketsData
-          ? JSON.parse(
-              existingTicketsData
-            )
-          : [];
-
-      const safeExistingTickets =
-        Array.isArray(existingTickets)
-          ? existingTickets
-          : [];
+      setIsSaving(true);
 
       // ========================================================
-      // FECHA ACTUAL
+      // ENVIAR TICKET A NEON
       // ========================================================
 
-      const now = new Date();
+      const response = await fetch(
+        "/api/tickets",
+        {
+          method: "POST",
 
-      // ========================================================
-      // GENERAR ID
-      // ========================================================
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
 
-      const ticketId =
-        generateTicketId(
-          safeExistingTickets
-        );
+          body: JSON.stringify({
+            asunto: subject.trim(),
 
-      // ========================================================
-      // CREAR TICKET
-      // ========================================================
+            categoria: category,
 
-      const newTicket = {
-        id: ticketId,
+            prioridad: priority,
 
-        subject: subject.trim(),
+            solicitante:
+              currentUser.name,
 
-        category,
+            correoSolicitante:
+              currentUser.email,
 
-        priority,
+            descripcion:
+              description.trim(),
 
-        status: "Abierto",
+            // --------------------------------------------------
+            // INFORMACIÓN DEL ARCHIVO
+            // --------------------------------------------------
+            // Por ahora guardamos el nombre del archivo.
+            // El almacenamiento físico del archivo lo podemos
+            // conectar después.
+            // --------------------------------------------------
 
-        // ======================================================
-        // USUARIO QUE CREÓ EL TICKET
-        // ======================================================
+            archivoNombre:
+              selectedFile
+                ? selectedFile.name
+                : null,
 
-        requester: currentUser.name,
-
-        requesterId: currentUser.id,
-
-        requesterRole:
-          currentUser.role,
-
-        requesterEmail:
-          currentUser.email,
-
-        user: currentUser.name,
-
-        userId: currentUser.id,
-
-        // ======================================================
-        // INFORMACIÓN DEL DEPARTAMENTO
-        // ======================================================
-
-        department:
-          currentUser.department,
-
-        // ======================================================
-        // FECHA
-        // ======================================================
-
-        date: now.toLocaleDateString(
-          "es-CO",
-          {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-          }
-        ),
-
-        time: now.toLocaleTimeString(
-          "es-CO",
-          {
-            hour: "2-digit",
-            minute: "2-digit",
-          }
-        ),
-
-        // ======================================================
-        // DESCRIPCIÓN
-        // ======================================================
-
-        description:
-          description.trim(),
-
-        // ======================================================
-        // ARCHIVO
-        // ======================================================
-
-        fileName: selectedFile
-          ? selectedFile.name
-          : "",
-
-        fileType: selectedFile
-          ? selectedFile.type
-          : "",
-
-        fileSize: selectedFile
-          ? selectedFile.size
-          : 0,
-
-        // ======================================================
-        // FECHA TÉCNICA
-        // ======================================================
-
-        createdAt:
-          now.toISOString(),
-      };
-
-      // ==========================================================
-      // GUARDAR TICKET
-      // ==========================================================
-
-      localStorage.setItem(
-        "docuportal_tickets",
-        JSON.stringify([
-          newTicket,
-          ...safeExistingTickets,
-        ])
+            archivoRuta: null,
+          }),
+        }
       );
 
-      // ==========================================================
-      // LEER HISTORIAL
-      // ==========================================================
+      const data =
+        await response.json();
 
-      const existingHistoryData =
-        localStorage.getItem(
-          "docuportal_history"
+      if (
+        !response.ok ||
+        !data.success
+      ) {
+        throw new Error(
+          data.message ||
+            "No fue posible crear el ticket."
         );
+      }
 
-      const existingHistory =
-        existingHistoryData
-          ? JSON.parse(
-              existingHistoryData
-            )
-          : [];
+      // ========================================================
+      // TICKET CREADO CORRECTAMENTE
+      // ========================================================
 
-      const safeExistingHistory =
-        Array.isArray(existingHistory)
-          ? existingHistory
-          : [];
-
-      // ==========================================================
-      // CREAR ACTIVIDAD DE HISTORIAL
-      // ==========================================================
-
-      const historyItem = {
-        id: `HIST-${Date.now()}`,
-
-        action: "Ticket creado",
-
-        document:
-          newTicket.subject,
-
-        documentId:
-          newTicket.id,
-
-        // ======================================================
-        // USUARIO REAL
-        // ======================================================
-
-        user:
-          currentUser.name,
-
-        userId:
-          currentUser.id,
-
-        userRole:
-          currentUser.role,
-
-        // ======================================================
-        // INFORMACIÓN
-        // ======================================================
-
-        date: now.toLocaleDateString(
-          "es-CO",
-          {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-          }
-        ),
-
-        time: now.toLocaleTimeString(
-          "es-CO",
-          {
-            hour: "2-digit",
-            minute: "2-digit",
-          }
-        ),
-
-        status:
-          newTicket.status,
-
-        type: "Ticket",
-
-        category:
-          newTicket.category,
-
-        priority:
-          newTicket.priority,
-
-        details:
-          `El usuario ${currentUser.name} creó el ticket ${newTicket.id}.`,
-
-        createdAt:
-          now.toISOString(),
-      };
-
-      // ==========================================================
-      // GUARDAR HISTORIAL
-      // ==========================================================
-
-      localStorage.setItem(
-        "docuportal_history",
-        JSON.stringify([
-          historyItem,
-          ...safeExistingHistory,
-        ])
+      console.log(
+        "Ticket creado:",
+        data.ticket
       );
-
-      // ==========================================================
-      // MOSTRAR ÉXITO
-      // ==========================================================
 
       setSuccess(true);
+
+      // ========================================================
+      // LIMPIAR FORMULARIO
+      // ========================================================
+
+      setSubject("");
+      setCategory("Soporte");
+      setPriority("Normal");
+      setDescription("");
+      setSelectedFile(null);
+
+      // ========================================================
+      // REDIRIGIR A TICKETS
+      // ========================================================
 
       setTimeout(() => {
         router.push(
           "/dashboard/tickets"
         );
       }, 800);
-    } catch (storageError) {
+
+    } catch (error) {
       console.error(
-        "Error al guardar ticket:",
-        storageError
+        "Error al crear ticket:",
+        error
       );
 
       setError(
-        "No fue posible guardar el ticket. Intenta nuevamente."
+        error.message ||
+          "No fue posible guardar el ticket. Intenta nuevamente."
       );
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -551,6 +379,10 @@ export default function NewTicketPage() {
   const initials = getInitials(
     currentUser.name
   );
+
+  // ============================================================
+  // RENDER
+  // ============================================================
 
   return (
     <div className="dashboard-layout">
@@ -667,8 +499,10 @@ export default function NewTicketPage() {
             </span>
           </Link>
 
-          {currentUser.role ===
-            "Administrador" && (
+          {String(currentUser.role || "")
+            .trim()
+            .toLowerCase() ===
+            "administrador" && (
             <Link
               href="/admin"
               className="navigation-item"
@@ -854,6 +688,7 @@ export default function NewTicketPage() {
                   }
                   placeholder="Ej. Problema con un documento enviado"
                   maxLength={150}
+                  disabled={isSaving}
                 />
 
               </div>
@@ -879,6 +714,7 @@ export default function NewTicketPage() {
                         event.target.value
                       )
                     }
+                    disabled={isSaving}
                   >
 
                     {CATEGORIES.map(
@@ -911,6 +747,7 @@ export default function NewTicketPage() {
                         event.target.value
                       )
                     }
+                    disabled={isSaving}
                   >
 
                     {PRIORITIES.map(
@@ -952,6 +789,7 @@ export default function NewTicketPage() {
                   placeholder="Describe detalladamente la solicitud o el problema..."
                   rows={7}
                   maxLength={1000}
+                  disabled={isSaving}
                 />
 
                 <small>
@@ -1051,6 +889,7 @@ export default function NewTicketPage() {
                         setSelectedFile(null)
                       }
                       aria-label="Eliminar archivo"
+                      disabled={isSaving}
                     >
                       ×
                     </button>
@@ -1097,13 +936,22 @@ export default function NewTicketPage() {
                 <button
                   type="submit"
                   className="documents-new-button"
-                  disabled={success}
+                  disabled={
+                    isSaving ||
+                    success
+                  }
                 >
+
                   <span>
-                    ✓
+                    {isSaving
+                      ? "..."
+                      : "✓"}
                   </span>
 
-                  Crear ticket
+                  {isSaving
+                    ? "Guardando..."
+                    : "Crear ticket"}
+
                 </button>
 
               </div>
@@ -1112,10 +960,13 @@ export default function NewTicketPage() {
 
           </section>
 
+          {/* ========================================================
+              INFORMACIÓN
+          ======================================================== */}
+
           <p className="documents-demo-notice">
-            Por ahora los tickets se guardan
-            temporalmente en este navegador. Más adelante
-            los conectaremos con la base de datos.
+            Los tickets creados se almacenan en la
+            base de datos del portal.
           </p>
 
         </div>

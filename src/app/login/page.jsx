@@ -1,89 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-
-const ALLOWED_ROLES = [
-  "Administrador",
-  "Empleado",
-  "Usuario",
-];
-
-const DEFAULT_ADMIN = {
-  id: 2,
-  name: "Greylin Martínez",
-  email: "greylin@docuportal.com",
-  role: "Administrador",
-  department: "Administración",
-  status: "Activo",
-  password: "123456",
-};
 
 export default function LoginPage() {
   const router = useRouter();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] =
-    useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-
-  // ============================================================
-  // INICIALIZAR ADMINISTRADOR LOCAL
-  // ============================================================
-
-  useEffect(() => {
-    try {
-      const savedUsers = JSON.parse(
-        localStorage.getItem(
-          "docuportal_users"
-        ) || "[]"
-      );
-
-      let users = Array.isArray(savedUsers)
-        ? savedUsers
-        : [];
-
-      const adminIndex = users.findIndex(
-        (user) =>
-          String(user?.email || "")
-            .trim()
-            .toLowerCase() ===
-          DEFAULT_ADMIN.email.toLowerCase()
-      );
-
-      if (adminIndex === -1) {
-        users = [
-          DEFAULT_ADMIN,
-          ...users,
-        ];
-      } else {
-        users[adminIndex] = {
-          ...users[adminIndex],
-          id: 2,
-          name: DEFAULT_ADMIN.name,
-          email: DEFAULT_ADMIN.email,
-          role: DEFAULT_ADMIN.role,
-          department:
-            DEFAULT_ADMIN.department,
-          status: DEFAULT_ADMIN.status,
-          password:
-            DEFAULT_ADMIN.password,
-        };
-      }
-
-      localStorage.setItem(
-        "docuportal_users",
-        JSON.stringify(users)
-      );
-    } catch (error) {
-      console.error(
-        "Error al inicializar usuarios:",
-        error
-      );
-    }
-  }, []);
 
   // ============================================================
   // INICIAR SESIÓN
@@ -95,16 +22,12 @@ export default function LoginPage() {
     setError("");
 
     if (!email.trim()) {
-      setError(
-        "Ingresa tu correo electrónico."
-      );
+      setError("Ingresa tu correo electrónico.");
       return;
     }
 
     if (!password) {
-      setError(
-        "Ingresa tu contraseña."
-      );
+      setError("Ingresa tu contraseña.");
       return;
     }
 
@@ -115,301 +38,64 @@ export default function LoginPage() {
         email.trim().toLowerCase();
 
       // ========================================================
-      // 1. BUSCAR ADMINISTRADOR EN LOCALSTORAGE
+      // 1. VALIDAR ADMINISTRADOR O EMPLEADO EN NEON
       // ========================================================
 
-      const savedUsers = JSON.parse(
-        localStorage.getItem(
-          "docuportal_users"
-        ) || "[]"
+      const userResponse = await fetch(
+        "/api/usuarios/login",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            correo: normalizedEmail,
+            contrasena: password,
+          }),
+        }
       );
 
-      const users = Array.isArray(
-        savedUsers
-      )
-        ? savedUsers
-        : [];
-
-      const localUser = users.find(
-        (item) =>
-          String(item?.email || "")
-            .trim()
-            .toLowerCase() ===
-            normalizedEmail &&
-          String(
-            item?.password || ""
-          ) === password
-      );
-
-      // ========================================================
-      // 2. SI ES USUARIO LOCAL
-      // ========================================================
-
-      if (localUser) {
-        if (
-          localUser.status !== "Activo"
-        ) {
-          setError(
-            "Este usuario se encuentra inactivo. Contacta al administrador."
-          );
-
-          setIsLoading(false);
-          return;
-        }
-
-        if (
-          !ALLOWED_ROLES.includes(
-            localUser.role
-          )
-        ) {
-          setError(
-            "El usuario tiene un rol no válido. Contacta al administrador."
-          );
-
-          setIsLoading(false);
-          return;
-        }
-
-        const sessionUser = {
-          id: localUser.id,
-          name: localUser.name,
-          email: localUser.email,
-          role: localUser.role,
-          department:
-            localUser.department || "",
-        };
-
-        localStorage.setItem(
-          "docuportal_current_user",
-          JSON.stringify(
-            sessionUser
-          )
-        );
-
-        // Actualizar último acceso
-        const updatedUsers = users.map(
-          (item) => {
-            if (
-              String(item?.email || "")
-                .trim()
-                .toLowerCase() ===
-              normalizedEmail
-            ) {
-              return {
-                ...item,
-                lastAccess:
-                  new Date().toLocaleString(
-                    "es-CO",
-                    {
-                      day: "2-digit",
-                      month: "short",
-                      year: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    }
-                  ),
-              };
-            }
-
-            return item;
-          }
-        );
-
-        localStorage.setItem(
-          "docuportal_users",
-          JSON.stringify(
-            updatedUsers
-          )
-        );
-
-        // Historial
-        let existingHistory = [];
-
-        try {
-          const savedHistory =
-            localStorage.getItem(
-              "docuportal_history"
-            );
-
-          existingHistory =
-            savedHistory
-              ? JSON.parse(
-                  savedHistory
-                )
-              : [];
-
-          if (
-            !Array.isArray(
-              existingHistory
-            )
-          ) {
-            existingHistory = [];
-          }
-        } catch (historyError) {
-          console.error(
-            "Error leyendo historial:",
-            historyError
-          );
-
-          existingHistory = [];
-        }
-
-        const now = new Date();
-
-        const historyItem = {
-          id: `HIST-${Date.now()}-${Math.random()
-            .toString(36)
-            .substring(2, 7)}`,
-
-          action:
-            "Inicio de sesión",
-
-          document:
-            localUser.name,
-
-          documentId:
-            localUser.id,
-
-          user:
-            localUser.name,
-
-          userId:
-            localUser.id,
-
-          userRole:
-            localUser.role,
-
-          userEmail:
-            localUser.email,
-
-          department:
-            localUser.department || "",
-
-          date:
-            now.toLocaleDateString(
-              "es-CO",
-              {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-              }
-            ),
-
-          time:
-            now.toLocaleTimeString(
-              "es-CO",
-              {
-                hour: "2-digit",
-                minute: "2-digit",
-              }
-            ),
-
-          status:
-            "Completado",
-
-          type: "Usuario",
-
-          details: `El usuario ${localUser.name} inició sesión en DocuPortal.`,
-
-          createdAt:
-            now.toISOString(),
-        };
-
-        localStorage.setItem(
-          "docuportal_history",
-          JSON.stringify([
-            historyItem,
-            ...existingHistory,
-          ])
-        );
-
-        // Redirección
-        setTimeout(() => {
-          if (
-            localUser.role ===
-            "Administrador"
-          ) {
-            router.push(
-              "/dashboard"
-            );
-          } else if (
-            localUser.role ===
-            "Empleado"
-          ) {
-            router.push(
-              "/empleado"
-            );
-          } else if (
-            localUser.role ===
-            "Usuario"
-          ) {
-            router.push(
-              "/destinatario"
-            );
-          }
-        }, 500);
-
-        return;
-      }
-
-      // ========================================================
-      // 3. BUSCAR EMPLEADO EN NEON
-      // ========================================================
-
-      const empleadoResponse =
-        await fetch(
-          "/api/usuarios/login",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-            body: JSON.stringify({
-              correo:
-                normalizedEmail,
-              contrasena:
-                password,
-            }),
-          }
-        );
-
-      const empleadoData =
-        await empleadoResponse.json();
+      const userData = await userResponse.json();
 
       if (
-        empleadoResponse.ok &&
-        empleadoData.success
+        userResponse.ok &&
+        userData.success
       ) {
-        const empleado =
-          empleadoData.usuario;
+        const usuario = userData.usuario;
 
-        const sessionUser = {
-          id: empleado.id,
-          name: empleado.nombre,
-          email: empleado.correo,
-          role: "Empleado",
-          department: "",
-        };
+        const role = String(
+          usuario.rol || ""
+        )
+          .trim()
+          .toLowerCase();
 
-        localStorage.setItem(
-          "docuportal_current_user",
-          JSON.stringify(
-            sessionUser
-          )
-        );
+        // ======================================================
+        // ADMINISTRADOR
+        // ======================================================
 
-        setTimeout(() => {
-          router.push(
-            "/empleado"
-          );
-        }, 500);
+        if (role === "administrador") {
+          setTimeout(() => {
+            router.push("/dashboard");
+          }, 500);
 
-        return;
+          return;
+        }
+
+        // ======================================================
+        // EMPLEADO
+        // ======================================================
+
+        if (role === "empleado") {
+          setTimeout(() => {
+            router.push("/dashboard");
+          }, 500);
+
+          return;
+        }
       }
 
       // ========================================================
-      // 4. BUSCAR USUARIO / DESTINATARIO EN NEON
+      // 2. VALIDAR DESTINATARIO EN NEON
       // ========================================================
 
       const recipientResponse =
@@ -418,14 +104,11 @@ export default function LoginPage() {
           {
             method: "POST",
             headers: {
-              "Content-Type":
-                "application/json",
+              "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              correo:
-                normalizedEmail,
-              contrasena:
-                password,
+              correo: normalizedEmail,
+              contrasena: password,
             }),
           }
         );
@@ -438,8 +121,7 @@ export default function LoginPage() {
         !recipientData.success
       ) {
         setError(
-          recipientData.message ||
-            "El correo o la contraseña son incorrectos."
+          "El correo o la contraseña son incorrectos."
         );
 
         setIsLoading(false);
@@ -447,53 +129,29 @@ export default function LoginPage() {
       }
 
       // ========================================================
-      // 5. USUARIO = DESTINATARIO
+      // 3. USUARIO = DESTINATARIO
       // ========================================================
 
       const destinatario =
         recipientData.destinatario;
 
-      const sessionUser = {
-        id:
-          destinatario.id,
-
-        name:
-          destinatario.nombre,
-
-        email:
-          destinatario.correo,
-
-        role: "Usuario",
-
-        department:
-          destinatario.empresa || "",
-
-        empresaId:
-          destinatario.empresa_id,
-
-        empresa:
-          destinatario.empresa,
-      };
-
-      localStorage.setItem(
-        "docuportal_current_user",
-        JSON.stringify(
-          sessionUser
-        )
-      );
+      // ========================================================
+      // GUARDAR DATOS DEL DESTINATARIO
+      // ========================================================
 
       sessionStorage.setItem(
         "docuportal_destinatario",
-        JSON.stringify(
-          destinatario
-        )
+        JSON.stringify(destinatario)
       );
 
+      // ========================================================
+      // REDIRIGIR DESTINATARIO
+      // ========================================================
+
       setTimeout(() => {
-        router.push(
-          "/destinatario"
-        );
+        router.push("/destinatario");
       }, 500);
+
     } catch (loginError) {
       console.error(
         "Error durante el inicio de sesión:",
@@ -515,7 +173,9 @@ export default function LoginPage() {
   return (
     <main className="login-page">
 
-      {/* PANEL IZQUIERDO */}
+      {/* ======================================================
+          PANEL IZQUIERDO
+      ====================================================== */}
 
       <section className="login-brand-panel">
 
@@ -526,6 +186,7 @@ export default function LoginPage() {
           </div>
 
           <div className="login-brand-name">
+
             <h1>
               DocuPortal
             </h1>
@@ -533,6 +194,7 @@ export default function LoginPage() {
             <span>
               Portal documental
             </span>
+
           </div>
 
           <div className="login-brand-description">
@@ -565,6 +227,7 @@ export default function LoginPage() {
               </span>
 
               <div>
+
                 <strong>
                   Gestión centralizada
                 </strong>
@@ -573,6 +236,7 @@ export default function LoginPage() {
                   Organiza todos tus
                   documentos.
                 </span>
+
               </div>
 
             </div>
@@ -584,6 +248,7 @@ export default function LoginPage() {
               </span>
 
               <div>
+
                 <strong>
                   Seguimiento
                 </strong>
@@ -592,6 +257,7 @@ export default function LoginPage() {
                   Consulta el historial
                   de actividades.
                 </span>
+
               </div>
 
             </div>
@@ -603,6 +269,7 @@ export default function LoginPage() {
               </span>
 
               <div>
+
                 <strong>
                   Soporte
                 </strong>
@@ -611,6 +278,7 @@ export default function LoginPage() {
                   Gestiona tus solicitudes
                   y tickets.
                 </span>
+
               </div>
 
             </div>
@@ -625,7 +293,9 @@ export default function LoginPage() {
 
       </section>
 
-      {/* PANEL LOGIN */}
+      {/* ======================================================
+          PANEL LOGIN
+      ====================================================== */}
 
       <section className="login-form-panel">
 
@@ -820,7 +490,26 @@ export default function LoginPage() {
 
           </form>
 
-          {/* USUARIO DEMO */}
+          {/* CREAR CUENTA */}
+
+          <div className="login-register-link">
+
+            <span>
+              ¿No tienes una cuenta?
+            </span>
+
+            <button
+              type="button"
+              onClick={() =>
+                router.push("/registro")
+              }
+            >
+              Crear cuenta
+            </button>
+
+          </div>
+
+          {/* USUARIO ADMINISTRADOR INICIAL */}
 
           <div className="login-demo">
 

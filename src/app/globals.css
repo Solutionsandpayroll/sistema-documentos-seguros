@@ -3704,3 +3704,730 @@ button {
     padding: 14px;
   }
 }
+
+/* ============================================================
+   LOGIN - CREAR CUENTA
+============================================================ */
+
+.login-register-link {
+  width: 100%;
+  margin-top: 22px;
+  padding-top: 18px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+
+  border-top: 1px solid var(--line);
+
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.login-register-link span {
+  color: var(--muted);
+}
+
+.login-register-link button {
+  padding: 0;
+
+  border: none;
+  outline: none;
+
+  background: transparent;
+
+  color: var(--primary);
+
+  font-size: 12px;
+  font-weight: 800;
+
+  cursor: pointer;
+
+  transition:
+    color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.login-register-link button:hover {
+  color: var(--primary-700);
+  text-decoration: underline;
+  transform: translateY(-1px);
+}
+
+.login-register-link button:active {
+  transform: translateY(0);
+}
+
+.login-register-link button:focus-visible {
+  outline: 2px solid rgba(79, 70, 229, 0.35);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+/* ============================================================
+   DOCUPORTAL - DESTINATARIO
+   ============================================================ */
+
+.destinatario-page {
+  min-height: 100vh;
+  background: #eef2f8;
+  font-family: Arial, sans-serif;
+  padding: 32px 38px 45px;
+  box-sizing: border-box;
+  color: #172033;
+}
+
+/* ============================================================
+   CONTENEDOR
+   ============================================================ */
+
+.destinatario-container {
+  max-width: 1450px;
+  margin: 0 auto;
+}
+
+/* ============================================================
+   ENCABEZADO
+   ============================================================ */
+
+.destinatario-header {
+  position: relative;
+  background: #172554;
+  color: #ffffff;
+  border-radius: 18px;
+  padding: 30px 34px;
+  box-shadow: 0 10px 30px rgba(30, 64, 175, 0.12);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 25px;
+  overflow: hidden;
+}
+
+.destinatario-header::after {
+  content: "";
+  position: absolute;
+  width: 240px;
+  height: 240px;
+  right: -80px;
+  top: -120px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.destinatario-header::before {
+  content: "";
+  position: absolute;
+  width: 140px;
+  height: 140px;
+  right: 120px;
+  bottom: -100px;
+  border-radius: 50%;
+  background: rgba(96, 165, 250, 0.08);
+}
+
+.destinatario-header-info {
+  position: relative;
+  z-index: 2;
+}
+
+.destinatario-header-info h1 {
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.2;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.destinatario-header-info p {
+  margin: 10px 0 0;
+  color: #cbd5e1;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* ============================================================
+   CERRAR SESIÓN
+   ============================================================ */
+
+.destinatario-logout {
+  position: relative;
+  z-index: 3;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  padding: 11px 18px;
+  border-radius: 9px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  transition:
+    background 0.2s ease,
+    transform 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.destinatario-logout:hover {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+/* ============================================================
+   INFORMACIÓN DEL USUARIO
+   ============================================================ */
+
+.destinatario-info-grid {
+  margin-top: 22px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.destinatario-info-card {
+  position: relative;
+  background: #ffffff;
+  padding: 21px 23px;
+  border-radius: 14px;
+  border: 1px solid #dce3ee;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
+  overflow: hidden;
+}
+
+.destinatario-info-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 4px;
+  height: 100%;
+  background: #3563d8;
+}
+
+.destinatario-info-label {
+  margin: 0;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+}
+
+.destinatario-info-value {
+  display: block;
+  margin-top: 9px;
+  color: #172033;
+  font-size: 16px;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.destinatario-info-number {
+  font-size: 27px;
+  color: #2457d6;
+}
+
+/* ============================================================
+   DOCUMENTOS
+   ============================================================ */
+
+.destinatario-documents-card {
+  margin-top: 22px;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 28px 30px;
+  border: 1px solid #dce3ee;
+  box-shadow: 0 5px 18px rgba(15, 23, 42, 0.055);
+}
+
+.destinatario-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 23px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #e6ebf2;
+}
+
+.destinatario-section-header span {
+  display: block;
+  color: #3563d8;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.3px;
+  margin-bottom: 6px;
+}
+
+.destinatario-section-header h2 {
+  margin: 0;
+  color: #172033;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+/* ============================================================
+   ERROR
+   ============================================================ */
+
+.destinatario-error {
+  background: #fff1f2;
+  color: #be123c;
+  border: 1px solid #fecdd3;
+  padding: 12px 15px;
+  border-radius: 9px;
+  margin-bottom: 20px;
+  font-size: 14px;
+}
+
+/* ============================================================
+   TABLA
+   ============================================================ */
+
+.destinatario-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid #e1e7ef;
+  border-radius: 12px;
+}
+
+.destinatario-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+}
+
+.destinatario-table thead tr {
+  background: #f1f5f9;
+}
+
+.destinatario-table th {
+  text-align: left;
+  padding: 15px;
+  border-bottom: 1px solid #dce3eb;
+  color: #526174;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+}
+
+.destinatario-table td {
+  padding: 16px 15px;
+  border-bottom: 1px solid #edf0f4;
+  color: #475569;
+  font-size: 14px;
+}
+
+.destinatario-table tbody tr {
+  background: #ffffff;
+  transition: background 0.2s ease;
+}
+
+.destinatario-table tbody tr:hover {
+  background: #f7f9fc;
+}
+
+.destinatario-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* ============================================================
+   DOCUMENTO
+   ============================================================ */
+
+.destinatario-document-name {
+  color: #172033;
+  font-weight: 600;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.destinatario-company {
+  color: #64748b;
+}
+
+/* ============================================================
+   ESTADOS
+   ============================================================ */
+
+.destinatario-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 11px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.destinatario-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.destinatario-status-enviado {
+  background: #eaf0ff;
+  color: #315cc9;
+}
+
+.destinatario-status-recibido {
+  background: #e8f7ef;
+  color: #16804b;
+}
+
+.destinatario-status-pendiente {
+  background: #fff3df;
+  color: #c56a12;
+}
+
+/* ============================================================
+   BOTÓN ACCEDER
+   ============================================================ */
+
+.destinatario-access-button {
+  border: none;
+  background: #2457d6;
+  color: #ffffff;
+  padding: 9px 15px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 3px 8px rgba(36, 87, 214, 0.16);
+  transition:
+    background 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.destinatario-access-button:hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+  box-shadow: 0 5px 12px rgba(36, 87, 214, 0.22);
+}
+
+/* ============================================================
+   SIN DOCUMENTOS
+   ============================================================ */
+
+.destinatario-empty {
+  padding: 55px 20px;
+  text-align: center;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+  color: #64748b;
+}
+
+.destinatario-empty-icon {
+  width: 54px;
+  height: 54px;
+  margin: 0 auto 16px;
+  border-radius: 14px;
+  background: #e8efff;
+  color: #315cc9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+}
+
+.destinatario-empty strong {
+  display: block;
+  color: #172033;
+  font-size: 16px;
+  margin-bottom: 7px;
+}
+
+.destinatario-empty span {
+  font-size: 14px;
+}
+
+/* ============================================================
+   MODAL
+   ============================================================ */
+
+.destinatario-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.68);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 1000;
+}
+
+.destinatario-modal {
+  width: 100%;
+  max-width: 450px;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 30px;
+  border: 1px solid #dce3ee;
+  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.25);
+  animation: destinatarioModalIn 0.2s ease;
+}
+
+@keyframes destinatarioModalIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ============================================================
+   MODAL HEADER
+   ============================================================ */
+
+.destinatario-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 15px;
+}
+
+.destinatario-modal-header h2 {
+  margin: 0;
+  color: #172033;
+  font-size: 21px;
+}
+
+.destinatario-modal-description {
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0 0 20px;
+}
+
+/* ============================================================
+   ARCHIVO SELECCIONADO
+   ============================================================ */
+
+.destinatario-selected-file {
+  background: #eef3ff;
+  border: 1px solid #d5e0ff;
+  padding: 13px 14px;
+  border-radius: 9px;
+  margin-bottom: 20px;
+  color: #23439a;
+  font-size: 14px;
+  word-break: break-word;
+}
+
+/* ============================================================
+   CONTRASEÑA
+   ============================================================ */
+
+.destinatario-password-label {
+  display: block;
+  margin-bottom: 8px;
+  color: #374151;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.destinatario-password-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 13px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #172033;
+  border-radius: 8px;
+  outline: none;
+  font-size: 15px;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.destinatario-password-input::placeholder {
+  color: #94a3b8;
+}
+
+.destinatario-password-input:focus {
+  border-color: #3563d8;
+  box-shadow: 0 0 0 3px rgba(53, 99, 216, 0.12);
+}
+
+.destinatario-password-input:disabled {
+  background: #f1f5f9;
+  cursor: not-allowed;
+}
+
+/* ============================================================
+   ERROR DE ACCESO
+   ============================================================ */
+
+.destinatario-access-error {
+  background: #fff1f2;
+  color: #be123c;
+  border: 1px solid #fecdd3;
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin-top: 12px;
+  margin-bottom: 15px;
+  font-size: 14px;
+}
+
+/* ============================================================
+   BOTONES MODAL
+   ============================================================ */
+
+.destinatario-modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.destinatario-cancel-button {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #475569;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background 0.2s ease;
+}
+
+.destinatario-cancel-button:hover {
+  background: #f1f5f9;
+}
+
+.destinatario-confirm-button {
+  border: none;
+  background: #2457d6;
+  color: #ffffff;
+  padding: 10px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 3px 8px rgba(36, 87, 214, 0.18);
+  transition:
+    background 0.2s ease,
+    transform 0.2s ease;
+}
+
+.destinatario-confirm-button:hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+.destinatario-confirm-button:disabled,
+.destinatario-cancel-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ============================================================
+   CARGANDO
+   ============================================================ */
+
+.destinatario-loading {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #eef2f8;
+  font-family: Arial, sans-serif;
+  color: #64748b;
+}
+
+.destinatario-loading-content {
+  text-align: center;
+}
+
+.destinatario-loading-icon {
+  width: 42px;
+  height: 42px;
+  margin: 0 auto 15px;
+  border: 3px solid #dbe3ef;
+  border-top-color: #3563d8;
+  border-radius: 50%;
+  animation: destinatarioSpin 0.8s linear infinite;
+}
+
+@keyframes destinatarioSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+
+@media (max-width: 900px) {
+  .destinatario-page {
+    padding: 25px;
+  }
+
+  .destinatario-info-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 650px) {
+  .destinatario-page {
+    padding: 15px;
+  }
+
+  .destinatario-header {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 25px;
+  }
+
+  .destinatario-header-info h1 {
+    font-size: 24px;
+  }
+
+  .destinatario-logout {
+    width: 100%;
+  }
+
+  .destinatario-info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .destinatario-documents-card {
+    padding: 20px;
+  }
+
+  .destinatario-section-header {
+    align-items: flex-start;
+  }
+
+  .destinatario-table-wrapper {
+    border-radius: 10px;
+  }
+
+  .destinatario-modal {
+    padding: 23px;
+  }
+
+  .destinatario-modal-actions {
+    flex-direction: column-reverse;
+  }
+
+  .destinatario-cancel-button,
+  .destinatario-confirm-button {
+    width: 100%;
+  }
+}

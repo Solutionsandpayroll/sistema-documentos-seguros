@@ -4,53 +4,6 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import LogoutButton from "../../../components/LogoutButton";
 
-const DEMO_HISTORY = [
-  {
-    id: "HIST-DEMO-001",
-    action: "Documento enviado",
-    document: "Contrato de prestación de servicios",
-    documentId: "DOC-001",
-    user: "Greylin Martínez",
-    date: "06 Oct 2026",
-    time: "09:15 a. m.",
-    status: "Enviado",
-    type: "Documento",
-  },
-  {
-    id: "HIST-DEMO-002",
-    action: "Documento creado",
-    document: "Informe mensual de gestión",
-    documentId: "DOC-002",
-    user: "Greylin Martínez",
-    date: "05 Oct 2026",
-    time: "03:40 p. m.",
-    status: "Pendiente",
-    type: "Documento",
-  },
-  {
-    id: "HIST-DEMO-003",
-    action: "Ticket creado",
-    document: "Solicitud de soporte documental",
-    documentId: "TKT-001",
-    user: "Greylin Martínez",
-    date: "04 Oct 2026",
-    time: "11:20 a. m.",
-    status: "Abierto",
-    type: "Ticket",
-  },
-  {
-    id: "HIST-DEMO-004",
-    action: "Documento recibido",
-    document: "Certificación laboral",
-    documentId: "DOC-003",
-    user: "Greylin Martínez",
-    date: "03 Oct 2026",
-    time: "10:05 a. m.",
-    status: "Recibido",
-    type: "Documento",
-  },
-];
-
 const FILTERS = [
   "Todos",
   "Documento",
@@ -59,7 +12,7 @@ const FILTERS = [
 ];
 
 export default function HistoryPage() {
-  const [history, setHistory] = useState(DEMO_HISTORY);
+  const [history, setHistory] = useState([]);
 
   const [search, setSearch] = useState("");
 
@@ -68,36 +21,73 @@ export default function HistoryPage() {
   const [selectedItem, setSelectedItem] = useState(null);
 
   const [currentUser, setCurrentUser] = useState({
-    name: "Greylin Martínez",
+    id: "",
+    name: "Usuario",
+    email: "",
     role: "Usuario",
+    department: "",
   });
 
+  const [loading, setLoading] = useState(true);
+
+  const [error, setError] = useState("");
+
   // ============================================================
-  // CARGAR USUARIO ACTUAL
+  // CARGAR USUARIO ACTUAL DESDE LA SESIÓN
   // ============================================================
 
   useEffect(() => {
-    try {
-      const currentUserData = localStorage.getItem(
-        "docuportal_current_user"
-      );
+    const loadCurrentUser = async () => {
+      try {
+        const response = await fetch(
+          "/api/usuarios/sesion",
+          {
+            method: "GET",
+            cache: "no-store",
+          }
+        );
 
-      if (currentUserData) {
-        const parsedUser = JSON.parse(currentUserData);
+        const data = await response.json();
+
+        if (
+          !response.ok ||
+          !data.success ||
+          !data.usuario
+        ) {
+          window.location.href = "/login";
+          return;
+        }
+
+        const usuario = data.usuario;
 
         setCurrentUser({
-          name: parsedUser.name || "Usuario",
-          role: parsedUser.role || "Usuario",
-          email: parsedUser.email || "",
-          department: parsedUser.department || "",
+          id: usuario.id || "",
+
+          name:
+            usuario.nombre ||
+            "Usuario",
+
+          email:
+            usuario.correo ||
+            "",
+
+          role:
+            usuario.rol ||
+            "Usuario",
+
+          department: "",
         });
+      } catch (error) {
+        console.error(
+          "Error al cargar usuario:",
+          error
+        );
+
+        window.location.href = "/login";
       }
-    } catch (error) {
-      console.error(
-        "Error al cargar usuario actual:",
-        error
-      );
-    }
+    };
+
+    loadCurrentUser();
   }, []);
 
   // ============================================================
@@ -105,31 +95,55 @@ export default function HistoryPage() {
   // ============================================================
 
   useEffect(() => {
-    try {
-      const savedHistory = JSON.parse(
-        localStorage.getItem("docuportal_history") || "[]"
-      );
+    const loadHistory = async () => {
+      try {
+        setLoading(true);
+        setError("");
 
-      if (
-        Array.isArray(savedHistory) &&
-        savedHistory.length > 0
-      ) {
-        // Si ya existen registros reales,
-        // mostramos solamente el historial real.
-        setHistory(savedHistory);
-      } else {
-        // Si todavía no hay registros reales,
-        // mostramos los registros de demostración.
-        setHistory(DEMO_HISTORY);
+        const response = await fetch(
+          "/api/historial",
+          {
+            method: "GET",
+            cache: "no-store",
+          }
+        );
+
+        const data = await response.json();
+
+        if (
+          !response.ok ||
+          !data.success
+        ) {
+          throw new Error(
+            data.message ||
+              "No fue posible obtener el historial."
+          );
+        }
+
+        const historyFromApi =
+          Array.isArray(data.history)
+            ? data.history
+            : [];
+
+        setHistory(historyFromApi);
+      } catch (error) {
+        console.error(
+          "Error al cargar historial:",
+          error
+        );
+
+        setError(
+          error.message ||
+            "No fue posible cargar el historial."
+        );
+
+        setHistory([]);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error(
-        "Error al cargar historial:",
-        error
-      );
+    };
 
-      setHistory(DEMO_HISTORY);
-    }
+    loadHistory();
   }, []);
 
   // ============================================================
@@ -137,7 +151,9 @@ export default function HistoryPage() {
   // ============================================================
 
   const userInitials = useMemo(() => {
-    const name = currentUser.name || "Usuario";
+    const name =
+      currentUser.name ||
+      "Usuario";
 
     const parts = name
       .trim()
@@ -196,37 +212,48 @@ export default function HistoryPage() {
         matchesFilter
       );
     });
-  }, [history, search, filter]);
+  }, [
+    history,
+    search,
+    filter,
+  ]);
 
   // ============================================================
   // ESTADÍSTICAS
   // ============================================================
 
-  const totalCount = history.length;
+  const totalCount =
+    history.length;
 
-  const documentCount = history.filter(
-    (item) => item.type === "Documento"
-  ).length;
+  const documentCount =
+    history.filter(
+      (item) =>
+        String(item.type || "")
+          .trim()
+          .toLowerCase() ===
+        "documento"
+    ).length;
 
-  const ticketCount = history.filter(
-    (item) => item.type === "Ticket"
-  ).length;
+  const ticketCount =
+    history.filter(
+      (item) =>
+        String(item.type || "")
+          .trim()
+          .toLowerCase() ===
+        "ticket"
+    ).length;
 
-  const sentCount = history.filter(
-    (item) => item.status === "Enviado"
-  ).length;
+  const sentCount =
+    history.filter(
+      (item) =>
+        String(item.status || "")
+          .trim()
+          .toLowerCase() ===
+        "enviado"
+    ).length;
 
   // ============================================================
   // NORMALIZAR DATOS DEL HISTORIAL
-  // ============================================================
-  //
-  // Algunos registros antiguos usan:
-  // document / documentId
-  //
-  // Los registros nuevos pueden usar:
-  // element / details
-  //
-  // Aquí hacemos que todos puedan mostrarse correctamente.
   // ============================================================
 
   const getElementName = (item) => {
@@ -258,11 +285,21 @@ export default function HistoryPage() {
   };
 
   const getTypeLabel = (item) => {
-    if (item.type === "Ticket") {
+    if (
+      String(item.type || "")
+        .trim()
+        .toLowerCase() ===
+      "ticket"
+    ) {
       return "TKT";
     }
 
-    if (item.type === "Usuario") {
+    if (
+      String(item.type || "")
+        .trim()
+        .toLowerCase() ===
+      "usuario"
+    ) {
       return "USR";
     }
 
@@ -270,31 +307,61 @@ export default function HistoryPage() {
   };
 
   const getStatusClass = (status) => {
-    if (status === "Enviado") {
+    const normalizedStatus = String(
+      status || ""
+    )
+      .trim()
+      .toLowerCase();
+
+    if (
+      normalizedStatus ===
+      "enviado"
+    ) {
       return "green";
     }
 
-    if (status === "Recibido") {
+    if (
+      normalizedStatus ===
+      "recibido"
+    ) {
       return "blue";
     }
 
     if (
-      status === "Abierto" ||
-      status === "En proceso"
+      normalizedStatus ===
+        "abierto" ||
+      normalizedStatus ===
+        "en proceso"
     ) {
       return "orange";
     }
 
-    if (status === "Completado") {
+    if (
+      normalizedStatus ===
+      "completado"
+    ) {
       return "green";
     }
 
-    if (status === "Pendiente") {
+    if (
+      normalizedStatus ===
+      "pendiente"
+    ) {
       return "orange";
     }
 
     return "green";
   };
+
+  // ============================================================
+  // ADMINISTRADOR
+  // ============================================================
+
+  const isAdmin =
+    String(currentUser.role || "")
+      .trim()
+      .toLowerCase() ===
+    "administrador";
 
   return (
     <div className="dashboard-layout">
@@ -411,9 +478,30 @@ export default function HistoryPage() {
             </span>
           </Link>
 
-          {/* Administración solamente para administradores */}
+          {/* ======================================================
+              MI CUENTA
+          ====================================================== */}
 
-          {currentUser.role === "Administrador" && (
+          {isAdmin && (
+            <Link
+              href="/dashboard/configuracion"
+              className="navigation-item"
+            >
+              <span className="navigation-icon">
+                ◉
+              </span>
+
+              <span>
+                Mi cuenta
+              </span>
+            </Link>
+          )}
+
+          {/* ======================================================
+              ADMINISTRACIÓN
+          ====================================================== */}
+
+          {isAdmin && (
             <Link
               href="/admin"
               className="navigation-item"
@@ -429,6 +517,10 @@ export default function HistoryPage() {
           )}
 
         </nav>
+
+        {/* ==========================================================
+            USUARIO
+        ========================================================== */}
 
         <div className="sidebar-footer">
 
@@ -452,7 +544,9 @@ export default function HistoryPage() {
 
           </div>
 
-          <LogoutButton className="logout-link">
+          <LogoutButton
+            className="logout-link"
+          >
             <span>
               ↪
             </span>
@@ -711,187 +805,240 @@ export default function HistoryPage() {
 
             <div className="table-wrapper">
 
-              <table className="documents-table">
-
-                <thead>
-
-                  <tr>
-
-                    <th>
-                      ACTIVIDAD
-                    </th>
-
-                    <th>
-                      ELEMENTO
-                    </th>
-
-                    <th>
-                      USUARIO
-                    </th>
-
-                    <th>
-                      FECHA
-                    </th>
-
-                    <th>
-                      ESTADO
-                    </th>
-
-                    <th>
-                      ACCIÓN
-                    </th>
-
-                  </tr>
-
-                </thead>
-
-                <tbody>
-
-                  {filteredHistory.map(
-                    (item, index) => (
-                      <tr
-                        key={`${item.id}-${item.createdAt || index}`}
-                      >
-
-                        <td>
-
-                          <div className="document-cell">
-
-                            <div className="document-type">
-                              {getTypeLabel(item)}
-                            </div>
-
-                            <div className="document-information">
-
-                              <strong>
-                                {item.action ||
-                                  "Actividad"}
-                              </strong>
-
-                              <span>
-                                {item.id}
-                              </span>
-
-                            </div>
-
-                          </div>
-
-                        </td>
-
-                        <td>
-
-                          <div className="document-information">
-
-                            <strong>
-                              {getElementName(item)}
-                            </strong>
-
-                            <span>
-                              {getElementId(item)}
-                            </span>
-
-                          </div>
-
-                        </td>
-
-                        <td>
-
-                          <span className="recipient-name">
-                            {item.user ||
-                              "Usuario"}
-                          </span>
-
-                        </td>
-
-                        <td>
-
-                          <div className="document-information">
-
-                            <strong>
-                              {item.date ||
-                                "Sin fecha"}
-                            </strong>
-
-                            <span>
-                              {item.time ||
-                                ""}
-                            </span>
-
-                          </div>
-
-                        </td>
-
-                        <td>
-
-                          <span
-                            className={`status-badge ${getStatusClass(
-                              item.status
-                            )}`}
-                          >
-
-                            <span className="status-dot"></span>
-
-                            {item.status ||
-                              "Registrado"}
-
-                          </span>
-
-                        </td>
-
-                        <td>
-
-                          <button
-                            type="button"
-                            className="document-view-button"
-                            onClick={() =>
-                              setSelectedItem(
-                                item
-                              )
-                            }
-                          >
-                            Ver detalles
-                          </button>
-
-                        </td>
-
-                      </tr>
-                    )
-                  )}
-
-                </tbody>
-
-              </table>
-
-              {filteredHistory.length === 0 && (
+              {loading ? (
 
                 <div className="documents-empty">
 
                   <div>
-                    ⌕
+                    ◷
                   </div>
 
                   <h3>
-                    No encontramos actividades
+                    Cargando historial...
                   </h3>
 
                   <p>
-                    Prueba con otro término o
-                    cambia el filtro.
+                    Estamos consultando las
+                    actividades guardadas en el portal.
+                  </p>
+
+                </div>
+
+              ) : error ? (
+
+                <div className="documents-empty">
+
+                  <div>
+                    !
+                  </div>
+
+                  <h3>
+                    No fue posible cargar el historial
+                  </h3>
+
+                  <p>
+                    {error}
                   </p>
 
                   <button
                     type="button"
-                    onClick={() => {
-                      setSearch("");
-                      setFilter("Todos");
-                    }}
+                    onClick={() =>
+                      window.location.reload()
+                    }
                   >
-                    Limpiar filtros
+                    Intentar nuevamente
                   </button>
 
                 </div>
 
+              ) : (
+
+                <table className="documents-table">
+
+                  <thead>
+
+                    <tr>
+
+                      <th>
+                        ACTIVIDAD
+                      </th>
+
+                      <th>
+                        ELEMENTO
+                      </th>
+
+                      <th>
+                        USUARIO
+                      </th>
+
+                      <th>
+                        FECHA
+                      </th>
+
+                      <th>
+                        ESTADO
+                      </th>
+
+                      <th>
+                        ACCIÓN
+                      </th>
+
+                    </tr>
+
+                  </thead>
+
+                  <tbody>
+
+                    {filteredHistory.map(
+                      (item, index) => (
+                        <tr
+                          key={`${item.id}-${item.createdAt || index}`}
+                        >
+
+                          <td>
+
+                            <div className="document-cell">
+
+                              <div className="document-type">
+                                {getTypeLabel(item)}
+                              </div>
+
+                              <div className="document-information">
+
+                                <strong>
+                                  {item.action ||
+                                    "Actividad"}
+                                </strong>
+
+                                <span>
+                                  {item.id}
+                                </span>
+
+                              </div>
+
+                            </div>
+
+                          </td>
+
+                          <td>
+
+                            <div className="document-information">
+
+                              <strong>
+                                {getElementName(item)}
+                              </strong>
+
+                              <span>
+                                {getElementId(item)}
+                              </span>
+
+                            </div>
+
+                          </td>
+
+                          <td>
+
+                            <span className="recipient-name">
+                              {item.user ||
+                                "Usuario"}
+                            </span>
+
+                          </td>
+
+                          <td>
+
+                            <div className="document-information">
+
+                              <strong>
+                                {item.date ||
+                                  "Sin fecha"}
+                              </strong>
+
+                              <span>
+                                {item.time ||
+                                  ""}
+                              </span>
+
+                            </div>
+
+                          </td>
+
+                          <td>
+
+                            <span
+                              className={`status-badge ${getStatusClass(
+                                item.status
+                              )}`}
+                            >
+
+                              <span className="status-dot"></span>
+
+                              {item.status ||
+                                "Registrado"}
+
+                            </span>
+
+                          </td>
+
+                          <td>
+
+                            <button
+                              type="button"
+                              className="document-view-button"
+                              onClick={() =>
+                                setSelectedItem(
+                                  item
+                                )
+                              }
+                            >
+                              Ver detalles
+                            </button>
+
+                          </td>
+
+                        </tr>
+                      )
+                    )}
+
+                  </tbody>
+
+                </table>
+
               )}
+
+              {!loading &&
+                !error &&
+                filteredHistory.length === 0 && (
+
+                  <div className="documents-empty">
+
+                    <div>
+                      ⌕
+                    </div>
+
+                    <h3>
+                      No encontramos actividades
+                    </h3>
+
+                    <p>
+                      Todavía no hay actividades
+                      registradas o no coinciden con
+                      tu búsqueda.
+                    </p>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearch("");
+                        setFilter("Todos");
+                      }}
+                    >
+                      Limpiar filtros
+                    </button>
+
+                  </div>
+
+                )}
 
             </div>
 

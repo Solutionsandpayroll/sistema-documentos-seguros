@@ -15,52 +15,69 @@ export default function DestinatarioPage() {
   const [accediendo, setAccediendo] = useState(false);
   const [mensajeAcceso, setMensajeAcceso] = useState("");
 
+  // ============================================================
+  // CARGAR SESIÓN DEL DESTINATARIO
+  // ============================================================
+
   useEffect(() => {
-    const session = localStorage.getItem(
-      "docuportal_current_user"
-    );
+    const cargarSesion = async () => {
+      try {
+        const response = await fetch(
+          "/api/destinatarios/sesion",
+          {
+            method: "GET",
+            cache: "no-store",
+          }
+        );
 
-    console.log("SESIÓN GUARDADA:", session);
+        const data = await response.json();
 
-    if (!session) {
-      window.location.href = "/";
-      return;
-    }
+        console.log(
+          "SESIÓN DEL DESTINATARIO:",
+          data
+        );
 
-    try {
-      const usuarioGuardado = JSON.parse(session);
+        if (!response.ok || !data.success || !data.destinatario) {
+          window.location.href = "/";
+          return;
+        }
 
-      console.log(
-        "USUARIO RECUPERADO:",
-        usuarioGuardado
-      );
+        const destinatario = data.destinatario;
 
-      console.log(
-        "ID DEL USUARIO:",
-        usuarioGuardado?.id
-      );
+        console.log(
+          "DESTINATARIO RECUPERADO:",
+          destinatario
+        );
 
-      if (usuarioGuardado.role !== "Usuario") {
+        console.log(
+          "ID DEL DESTINATARIO:",
+          destinatario.id
+        );
+
+        if (destinatario.role !== "Destinatario") {
+          window.location.href = "/";
+          return;
+        }
+
+        setUsuario(destinatario);
+
+        await cargarDocumentos(destinatario.id);
+      } catch (error) {
+        console.error(
+          "Error obteniendo sesión del destinatario:",
+          error
+        );
+
         window.location.href = "/";
-        return;
       }
+    };
 
-      setUsuario(usuarioGuardado);
-
-      cargarDocumentos(usuarioGuardado.id);
-    } catch (error) {
-      console.error(
-        "Error leyendo sesión:",
-        error
-      );
-
-      localStorage.removeItem(
-        "docuportal_current_user"
-      );
-
-      window.location.href = "/";
-    }
+    cargarSesion();
   }, []);
+
+  // ============================================================
+  // CARGAR DOCUMENTOS
+  // ============================================================
 
   async function cargarDocumentos(destinatarioId) {
     try {
@@ -69,13 +86,17 @@ export default function DestinatarioPage() {
 
       if (!destinatarioId) {
         setError(
-          "No se encontró el ID del usuario."
+          "No se encontró el ID del destinatario."
         );
         return;
       }
 
       const response = await fetch(
-        `/api/documentos/destinatario/${destinatarioId}`
+        `/api/documentos/destinatario/${destinatarioId}`,
+        {
+          method: "GET",
+          cache: "no-store",
+        }
       );
 
       const data = await response.json();
@@ -87,7 +108,9 @@ export default function DestinatarioPage() {
         );
       }
 
-      setDocumentos(data.documentos || []);
+      setDocumentos(
+        data.documentos || []
+      );
     } catch (error) {
       console.error(
         "Error obteniendo documentos:",
@@ -103,11 +126,19 @@ export default function DestinatarioPage() {
     }
   }
 
+  // ============================================================
+  // ABRIR ACCESO
+  // ============================================================
+
   function abrirAcceso(documento) {
     setDocumentoSeleccionado(documento);
     setContrasena("");
     setMensajeAcceso("");
   }
+
+  // ============================================================
+  // CERRAR ACCESO
+  // ============================================================
 
   function cerrarAcceso() {
     if (accediendo) return;
@@ -116,6 +147,10 @@ export default function DestinatarioPage() {
     setContrasena("");
     setMensajeAcceso("");
   }
+
+  // ============================================================
+  // ACCEDER AL DOCUMENTO
+  // ============================================================
 
   async function accederDocumento() {
     if (!documentoSeleccionado) {
@@ -139,6 +174,7 @@ export default function DestinatarioPage() {
       setMensajeAcceso(
         "Ingresa la contraseña del documento."
       );
+
       return;
     }
 
@@ -147,8 +183,12 @@ export default function DestinatarioPage() {
       {
         documento_id:
           documentoSeleccionado.id,
-        destinatario_id: usuario.id,
-        contrasena: contrasena,
+
+        destinatario_id:
+          usuario.id,
+
+        contrasena:
+          contrasena,
       }
     );
 
@@ -160,9 +200,12 @@ export default function DestinatarioPage() {
         "/api/documentos/acceso",
         {
           method: "POST",
+
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type":
+              "application/json",
           },
+
           body: JSON.stringify({
             documento_id:
               documentoSeleccionado.id,
@@ -188,6 +231,7 @@ export default function DestinatarioPage() {
           data.message ||
             "No fue posible acceder al documento."
         );
+
         return;
       }
 
@@ -212,15 +256,11 @@ export default function DestinatarioPage() {
     }
   }
 
+  // ============================================================
+  // CERRAR SESIÓN
+  // ============================================================
+
   function cerrarSesion() {
-    localStorage.removeItem(
-      "docuportal_current_user"
-    );
-
-    localStorage.removeItem(
-      "docuportal_destinatario"
-    );
-
     sessionStorage.removeItem(
       "docuportal_documento_autorizado"
     );
@@ -228,488 +268,330 @@ export default function DestinatarioPage() {
     window.location.href = "/";
   }
 
+  // ============================================================
+  // OBTENER ESTADO
+  // ============================================================
+
+  function getStatusClass(status) {
+    const estado = status?.toLowerCase();
+
+    if (estado === "enviado") {
+      return "destinatario-status-enviado";
+    }
+
+    if (estado === "recibido") {
+      return "destinatario-status-recibido";
+    }
+
+    return "destinatario-status-pendiente";
+  }
+
+  // ============================================================
+  // CARGANDO
+  // ============================================================
+
   if (cargando) {
     return (
-      <main
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontFamily: "Arial, sans-serif",
-        }}
-      >
-        <p>Cargando tus documentos...</p>
+      <main className="destinatario-loading">
+        <div className="destinatario-loading-content">
+          <div className="destinatario-loading-icon"></div>
+
+          <p>
+            Cargando tus documentos...
+          </p>
+        </div>
       </main>
     );
   }
 
+  // ============================================================
+  // INTERFAZ
+  // ============================================================
+
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        background: "#f5f7fb",
-        fontFamily: "Arial, sans-serif",
-        padding: "30px",
-      }}
-    >
-      {/* ENCABEZADO */}
-      <div
-        style={{
-          maxWidth: "1200px",
-          margin: "0 auto",
-          background: "#ffffff",
-          borderRadius: "12px",
-          padding: "25px 30px",
-          boxShadow:
-            "0 2px 10px rgba(0,0,0,0.06)",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          gap: "20px",
-        }}
-      >
-        <div>
-          <h1
-            style={{
-              margin: 0,
-              fontSize: "28px",
-              color: "#111827",
-            }}
-          >
-            Bienvenido,{" "}
-            {usuario?.nombre || "Usuario"}
-          </h1>
+    <main className="destinatario-page">
+      <div className="destinatario-container">
 
-          <p
-            style={{
-              margin: "8px 0 0",
-              color: "#6b7280",
-            }}
-          >
-            Aquí puedes consultar los documentos
-            que han sido autorizados para ti.
-          </p>
-        </div>
+        {/* ======================================================
+            ENCABEZADO
+            ====================================================== */}
 
-        <button
-          onClick={cerrarSesion}
-          style={{
-            border: "none",
-            background: "#ef4444",
-            color: "#ffffff",
-            padding: "10px 18px",
-            borderRadius: "8px",
-            cursor: "pointer",
-            fontWeight: "600",
-          }}
-        >
-          Cerrar sesión
-        </button>
-      </div>
+        <header className="destinatario-header">
 
-      {/* INFORMACIÓN DEL USUARIO */}
-      <div
-        style={{
-          maxWidth: "1200px",
-          margin: "25px auto 0",
-          display: "grid",
-          gridTemplateColumns:
-            "repeat(auto-fit, minmax(220px, 1fr))",
-          gap: "20px",
-        }}
-      >
-        <div
-          style={{
-            background: "#ffffff",
-            padding: "20px",
-            borderRadius: "12px",
-            boxShadow:
-              "0 2px 10px rgba(0,0,0,0.05)",
-          }}
-        >
-          <p
-            style={{
-              margin: 0,
-              color: "#6b7280",
-              fontSize: "14px",
-            }}
-          >
-            Correo
-          </p>
+          <div className="destinatario-header-info">
 
-          <strong
-            style={{
-              display: "block",
-              marginTop: "8px",
-              color: "#111827",
-            }}
-          >
-            {usuario?.correo}
-          </strong>
-        </div>
+            <h1>
+              Bienvenido,{" "}
+              {usuario?.nombre || "Usuario"}
+            </h1>
 
-        <div
-          style={{
-            background: "#ffffff",
-            padding: "20px",
-            borderRadius: "12px",
-            boxShadow:
-              "0 2px 10px rgba(0,0,0,0.05)",
-          }}
-        >
-          <p
-            style={{
-              margin: 0,
-              color: "#6b7280",
-              fontSize: "14px",
-            }}
-          >
-            Empresa
-          </p>
+            <p>
+              Aquí puedes consultar los documentos
+              que han sido autorizados para ti.
+            </p>
 
-          <strong
-            style={{
-              display: "block",
-              marginTop: "8px",
-              color: "#111827",
-            }}
-          >
-            {usuario?.empresa ||
-              "No disponible"}
-          </strong>
-        </div>
-
-        <div
-          style={{
-            background: "#ffffff",
-            padding: "20px",
-            borderRadius: "12px",
-            boxShadow:
-              "0 2px 10px rgba(0,0,0,0.05)",
-          }}
-        >
-          <p
-            style={{
-              margin: 0,
-              color: "#6b7280",
-              fontSize: "14px",
-            }}
-          >
-            Documentos disponibles
-          </p>
-
-          <strong
-            style={{
-              display: "block",
-              marginTop: "8px",
-              fontSize: "24px",
-              color: "#111827",
-            }}
-          >
-            {documentos.length}
-          </strong>
-        </div>
-      </div>
-
-      {/* DOCUMENTOS */}
-      <section
-        style={{
-          maxWidth: "1200px",
-          margin: "25px auto 0",
-          background: "#ffffff",
-          borderRadius: "12px",
-          padding: "25px 30px",
-          boxShadow:
-            "0 2px 10px rgba(0,0,0,0.06)",
-        }}
-      >
-        <h2
-          style={{
-            marginTop: 0,
-            color: "#111827",
-          }}
-        >
-          Mis documentos
-        </h2>
-
-        {error && (
-          <div
-            style={{
-              background: "#fee2e2",
-              color: "#991b1b",
-              padding: "12px 15px",
-              borderRadius: "8px",
-              marginBottom: "20px",
-            }}
-          >
-            {error}
           </div>
-        )}
 
-        {documentos.length === 0 ? (
-          <div
-            style={{
-              padding: "30px",
-              textAlign: "center",
-              color: "#6b7280",
-            }}
+          <button
+            onClick={cerrarSesion}
+            className="destinatario-logout"
           >
-            No tienes documentos disponibles.
+            Cerrar sesión
+          </button>
+
+        </header>
+
+        {/* ======================================================
+            INFORMACIÓN DEL USUARIO
+            ====================================================== */}
+
+        <section className="destinatario-info-grid">
+
+          <div className="destinatario-info-card">
+
+            <p className="destinatario-info-label">
+              Correo
+            </p>
+
+            <strong className="destinatario-info-value">
+              {usuario?.correo ||
+                "No disponible"}
+            </strong>
+
           </div>
-        ) : (
-          <div
-            style={{
-              overflowX: "auto",
-            }}
-          >
-            <table
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-              }}
-            >
-              <thead>
-                <tr
-                  style={{
-                    background: "#f9fafb",
-                  }}
-                >
-                  <th
-                    style={{
-                      textAlign: "left",
-                      padding: "14px",
-                      borderBottom:
-                        "1px solid #e5e7eb",
-                    }}
-                  >
-                    Documento
-                  </th>
 
-                  <th
-                    style={{
-                      textAlign: "left",
-                      padding: "14px",
-                      borderBottom:
-                        "1px solid #e5e7eb",
-                    }}
-                  >
-                    Empresa
-                  </th>
+          <div className="destinatario-info-card">
 
-                  <th
-                    style={{
-                      textAlign: "left",
-                      padding: "14px",
-                      borderBottom:
-                        "1px solid #e5e7eb",
-                    }}
-                  >
-                    Estado
-                  </th>
+            <p className="destinatario-info-label">
+              Empresa
+            </p>
 
-                  <th
-                    style={{
-                      textAlign: "left",
-                      padding: "14px",
-                      borderBottom:
-                        "1px solid #e5e7eb",
-                    }}
-                  >
-                    Fecha
-                  </th>
+            <strong className="destinatario-info-value">
+              {usuario?.empresa ||
+                "No disponible"}
+            </strong>
 
-                  <th
-                    style={{
-                      textAlign: "center",
-                      padding: "14px",
-                      borderBottom:
-                        "1px solid #e5e7eb",
-                    }}
-                  >
-                    Acción
-                  </th>
-                </tr>
-              </thead>
+          </div>
 
-              <tbody>
-                {documentos.map((documento) => (
-                  <tr key={documento.id}>
-                    <td
-                      style={{
-                        padding: "14px",
-                        borderBottom:
-                          "1px solid #f0f0f0",
-                        fontWeight: "600",
-                      }}
-                    >
-                      {documento.nombre_archivo}
-                    </td>
+          <div className="destinatario-info-card">
 
-                    <td
-                      style={{
-                        padding: "14px",
-                        borderBottom:
-                          "1px solid #f0f0f0",
-                      }}
-                    >
-                      {documento.empresa}
-                    </td>
+            <p className="destinatario-info-label">
+              Documentos disponibles
+            </p>
 
-                    <td
-                      style={{
-                        padding: "14px",
-                        borderBottom:
-                          "1px solid #f0f0f0",
-                      }}
-                    >
-                      <span
-                        style={{
-                          display:
-                            "inline-block",
-                          background:
-                            documento.estado ===
-                            "enviado"
-                              ? "#dcfce7"
-                              : "#f3f4f6",
-                          color:
-                            documento.estado ===
-                            "enviado"
-                              ? "#166534"
-                              : "#374151",
-                          padding:
-                            "5px 10px",
-                          borderRadius: "20px",
-                          fontSize: "13px",
-                          fontWeight: "600",
-                        }}
-                      >
-                        {documento.estado}
-                      </span>
-                    </td>
+            <strong className="destinatario-info-value destinatario-info-number">
+              {documentos.length}
+            </strong>
 
-                    <td
-                      style={{
-                        padding: "14px",
-                        borderBottom:
-                          "1px solid #f0f0f0",
-                      }}
-                    >
-                      {documento.creado_en
-                        ? new Date(
-                            documento.creado_en
-                          ).toLocaleDateString(
-                            "es-CO"
-                          )
-                        : "Sin fecha"}
-                    </td>
+          </div>
 
-                    <td
-                      style={{
-                        padding: "14px",
-                        borderBottom:
-                          "1px solid #f0f0f0",
-                        textAlign: "center",
-                      }}
-                    >
-                      <button
-                        onClick={() =>
-                          abrirAcceso(
-                            documento
-                          )
-                        }
-                        style={{
-                          border: "none",
-                          background:
-                            "#111827",
-                          color: "#ffffff",
-                          padding:
-                            "9px 16px",
-                          borderRadius: "7px",
-                          cursor: "pointer",
-                          fontWeight: "600",
-                        }}
-                      >
-                        🔐 Acceder
-                      </button>
-                    </td>
+        </section>
+
+        {/* ======================================================
+            DOCUMENTOS
+            ====================================================== */}
+
+        <section className="destinatario-documents-card">
+
+          <div className="destinatario-section-header">
+
+            <div>
+
+              <span>
+                PORTAL DOCUMENTAL
+              </span>
+
+              <h2>
+                Mis documentos
+              </h2>
+
+            </div>
+
+          </div>
+
+          {error && (
+            <div className="destinatario-error">
+              {error}
+            </div>
+          )}
+
+          {documentos.length === 0 ? (
+
+            <div className="destinatario-empty">
+
+              <div className="destinatario-empty-icon">
+                ▤
+              </div>
+
+              <strong>
+                No tienes documentos disponibles
+              </strong>
+
+              <span>
+                Los documentos autorizados para ti
+                aparecerán aquí.
+              </span>
+
+            </div>
+
+          ) : (
+
+            <div className="destinatario-table-wrapper">
+
+              <table className="destinatario-table">
+
+                <thead>
+
+                  <tr>
+
+                    <th>
+                      Documento
+                    </th>
+
+                    <th>
+                      Empresa
+                    </th>
+
+                    <th>
+                      Estado
+                    </th>
+
+                    <th>
+                      Fecha
+                    </th>
+
+                    <th>
+                      Acción
+                    </th>
+
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
 
-      {/* MODAL DE CONTRASEÑA */}
+                </thead>
+
+                <tbody>
+
+                  {documentos.map(
+                    (documento) => (
+
+                      <tr
+                        key={documento.id}
+                      >
+
+                        <td>
+
+                          <div className="destinatario-document-name">
+
+                            {documento.nombre_archivo}
+
+                          </div>
+
+                        </td>
+
+                        <td>
+
+                          <span className="destinatario-company">
+
+                            {documento.empresa ||
+                              "Sin empresa"}
+
+                          </span>
+
+                        </td>
+
+                        <td>
+
+                          <span
+                            className={`destinatario-status ${getStatusClass(
+                              documento.estado
+                            )}`}
+                          >
+
+                            <span className="destinatario-status-dot"></span>
+
+                            {documento.estado ||
+                              "Pendiente"}
+
+                          </span>
+
+                        </td>
+
+                        <td>
+
+                          {documento.creado_en
+                            ? new Date(
+                                documento.creado_en
+                              ).toLocaleDateString(
+                                "es-CO"
+                              )
+                            : "Sin fecha"}
+
+                        </td>
+
+                        <td>
+
+                          <button
+                            onClick={() =>
+                              abrirAcceso(
+                                documento
+                              )
+                            }
+                            className="destinatario-access-button"
+                          >
+                            🔐 Acceder
+                          </button>
+
+                        </td>
+
+                      </tr>
+
+                    )
+                  )}
+
+                </tbody>
+
+              </table>
+
+            </div>
+
+          )}
+
+        </section>
+
+      </div>
+
+      {/* ========================================================
+          MODAL DE CONTRASEÑA
+          ======================================================== */}
+
       {documentoSeleccionado && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background:
-              "rgba(0, 0, 0, 0.55)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "20px",
-            zIndex: 1000,
-          }}
-        >
-          <div
-            style={{
-              width: "100%",
-              maxWidth: "450px",
-              background: "#ffffff",
-              borderRadius: "14px",
-              padding: "30px",
-              boxShadow:
-                "0 10px 40px rgba(0,0,0,0.2)",
-            }}
-          >
-            <h2
-              style={{
-                marginTop: 0,
-                color: "#111827",
-              }}
-            >
-              🔐 Acceder al documento
-            </h2>
 
-            <p
-              style={{
-                color: "#6b7280",
-                lineHeight: "1.5",
-              }}
-            >
+        <div className="destinatario-modal-overlay">
+
+          <div className="destinatario-modal">
+
+            <div className="destinatario-modal-header">
+
+              <h2>
+                🔐 Acceder al documento
+              </h2>
+
+            </div>
+
+            <p className="destinatario-modal-description">
               Para acceder a este documento debes
               ingresar la contraseña que fue
               proporcionada para este archivo.
             </p>
 
-            <div
-              style={{
-                background: "#f9fafb",
-                padding: "12px",
-                borderRadius: "8px",
-                marginBottom: "20px",
-              }}
-            >
+            <div className="destinatario-selected-file">
+
               <strong>
-                {
-                  documentoSeleccionado.nombre_archivo
-                }
+                {documentoSeleccionado.nombre_archivo}
               </strong>
+
             </div>
 
-            <label
-              style={{
-                display: "block",
-                marginBottom: "8px",
-                fontWeight: "600",
-                color: "#374151",
-              }}
-            >
+            <label className="destinatario-password-label">
               Contraseña del documento
             </label>
 
@@ -717,7 +599,9 @@ export default function DestinatarioPage() {
               type="password"
               value={contrasena}
               onChange={(e) =>
-                setContrasena(e.target.value)
+                setContrasena(
+                  e.target.value
+                )
               }
               onKeyDown={(e) => {
                 if (
@@ -729,55 +613,25 @@ export default function DestinatarioPage() {
               }}
               placeholder="Ingresa la contraseña"
               disabled={accediendo}
-              style={{
-                width: "100%",
-                boxSizing: "border-box",
-                padding: "12px",
-                border:
-                  "1px solid #d1d5db",
-                borderRadius: "8px",
-                outline: "none",
-                fontSize: "15px",
-                marginBottom: "12px",
-              }}
+              className="destinatario-password-input"
             />
 
             {mensajeAcceso && (
-              <div
-                style={{
-                  background: "#fee2e2",
-                  color: "#991b1b",
-                  padding: "10px 12px",
-                  borderRadius: "8px",
-                  marginBottom: "15px",
-                  fontSize: "14px",
-                }}
-              >
+
+              <div className="destinatario-access-error">
+
                 {mensajeAcceso}
+
               </div>
+
             )}
 
-            <div
-              style={{
-                display: "flex",
-                gap: "10px",
-                justifyContent: "flex-end",
-              }}
-            >
+            <div className="destinatario-modal-actions">
+
               <button
                 onClick={cerrarAcceso}
                 disabled={accediendo}
-                style={{
-                  border:
-                    "1px solid #d1d5db",
-                  background: "#ffffff",
-                  color: "#374151",
-                  padding: "10px 16px",
-                  borderRadius: "8px",
-                  cursor: accediendo
-                    ? "not-allowed"
-                    : "pointer",
-                }}
+                className="destinatario-cancel-button"
               >
                 Cancelar
               </button>
@@ -785,29 +639,21 @@ export default function DestinatarioPage() {
               <button
                 onClick={accederDocumento}
                 disabled={accediendo}
-                style={{
-                  border: "none",
-                  background: "#111827",
-                  color: "#ffffff",
-                  padding: "10px 18px",
-                  borderRadius: "8px",
-                  cursor: accediendo
-                    ? "not-allowed"
-                    : "pointer",
-                  fontWeight: "600",
-                  opacity: accediendo
-                    ? 0.7
-                    : 1,
-                }}
+                className="destinatario-confirm-button"
               >
                 {accediendo
                   ? "Validando..."
                   : "Acceder"}
               </button>
+
             </div>
+
           </div>
+
         </div>
+
       )}
+
     </main>
   );
 }

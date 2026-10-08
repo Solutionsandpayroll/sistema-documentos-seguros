@@ -1,767 +1,958 @@
 "use client";
 
+import "./empleado.css";
+import Link from "next/link";
 import { useEffect, useState } from "react";
+import LogoutButton from "@/components/LogoutButton";
 
 export default function EmpleadoPage() {
-  const [usuario, setUsuario] = useState(null);
+  // ============================================================
+  // USUARIO ACTUAL
+  // ============================================================
 
-  const [empresas, setEmpresas] = useState([]);
-  const [destinatarios, setDestinatarios] = useState([]);
+  const [currentUser, setCurrentUser] = useState({
+    id: null,
+    name: "Empleado",
+    role: "Empleado",
+  });
 
-  const [empresaSeleccionada, setEmpresaSeleccionada] =
-    useState("");
+  // ============================================================
+  // DOCUMENTOS
+  // ============================================================
 
-  const [destinatarioSeleccionado, setDestinatarioSeleccionado] =
-    useState("");
+  const [documents, setDocuments] = useState([]);
+  const [loadingDocuments, setLoadingDocuments] = useState(true);
 
-  const [archivo, setArchivo] = useState(null);
-
-  const [cargando, setCargando] = useState(true);
-  const [enviando, setEnviando] = useState(false);
-
-  const [mensaje, setMensaje] = useState("");
-  const [error, setError] = useState("");
+  // ============================================================
+  // CARGAR USUARIO DE LA SESIÓN
+  // ============================================================
 
   useEffect(() => {
-    cargarSesion();
-    cargarDatos();
-  }, []);
-
-  function cargarSesion() {
-    const sesionGuardada =
-      localStorage.getItem("docuportal_current_user");
-
-    if (!sesionGuardada) {
-      window.location.href = "/";
-      return;
-    }
-
     try {
-      const sesion = JSON.parse(sesionGuardada);
+      const savedUser = localStorage.getItem(
+        "docuportal_current_user"
+      );
 
-      if (sesion.role !== "Empleado") {
+      if (!savedUser) {
         window.location.href = "/";
         return;
       }
 
-      setUsuario(sesion);
+      const user = JSON.parse(savedUser);
+
+      if (user.role !== "Empleado") {
+        window.location.href = "/";
+        return;
+      }
+
+      setCurrentUser({
+        id: user.id || null,
+        name:
+          user.name ||
+          user.nombre ||
+          "Empleado",
+        role:
+          user.role ||
+          user.rol ||
+          "Empleado",
+      });
     } catch (error) {
       console.error(
-        "Error leyendo la sesión:",
+        "Error cargando el usuario actual:",
         error
       );
 
       window.location.href = "/";
     }
-  }
+  }, []);
 
-  async function cargarDatos() {
-    try {
-      setCargando(true);
-      setError("");
+  // ============================================================
+  // CARGAR DOCUMENTOS
+  // ============================================================
 
-      const [empresasResponse, destinatariosResponse] =
-        await Promise.all([
-          fetch("/api/empresas"),
-          fetch("/api/destinatarios"),
-        ]);
+  useEffect(() => {
+    const loadDocuments = async () => {
+      try {
+        setLoadingDocuments(true);
 
-      if (!empresasResponse.ok) {
-        throw new Error(
-          "No fue posible cargar las empresas."
-        );
-      }
-
-      if (!destinatariosResponse.ok) {
-        throw new Error(
-          "No fue posible cargar los usuarios autorizados."
-        );
-      }
-
-      const empresasData =
-        await empresasResponse.json();
-
-      const destinatariosData =
-        await destinatariosResponse.json();
-
-      setEmpresas(empresasData);
-      setDestinatarios(destinatariosData);
-    } catch (error) {
-      console.error(
-        "Error cargando datos:",
-        error
-      );
-
-      setError(
-        error.message ||
-          "No fue posible cargar la información."
-      );
-    } finally {
-      setCargando(false);
-    }
-  }
-
-  function seleccionarArchivo(event) {
-    const archivoSeleccionado =
-      event.target.files?.[0];
-
-    if (!archivoSeleccionado) {
-      setArchivo(null);
-      return;
-    }
-
-    setArchivo(archivoSeleccionado);
-    setMensaje("");
-    setError("");
-  }
-
-  function generarContrasena() {
-    const caracteres =
-      "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
-
-    let contrasena = "";
-
-    for (let i = 0; i < 8; i++) {
-      const posicion = Math.floor(
-        Math.random() * caracteres.length
-      );
-
-      contrasena += caracteres[posicion];
-    }
-
-    return contrasena;
-  }
-
-  async function enviarDocumento(event) {
-    event.preventDefault();
-
-    setMensaje("");
-    setError("");
-
-    if (!usuario?.id) {
-      setError(
-        "No se encontró la sesión del empleado."
-      );
-      return;
-    }
-
-    if (!archivo) {
-      setError(
-        "Debes seleccionar un archivo."
-      );
-      return;
-    }
-
-    if (!empresaSeleccionada) {
-      setError(
-        "Debes seleccionar una empresa."
-      );
-      return;
-    }
-
-    if (!destinatarioSeleccionado) {
-      setError(
-        "Debes seleccionar un Usuario autorizado."
-      );
-      return;
-    }
-
-    try {
-      setEnviando(true);
-
-      // ------------------------------------------------
-      // 1. Subir archivo
-      // ------------------------------------------------
-
-      const formData = new FormData();
-
-      formData.append("file", archivo);
-
-      const uploadResponse = await fetch(
-        "/api/documentos/upload",
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
-
-      const uploadData =
-        await uploadResponse.json();
-
-      if (!uploadResponse.ok || !uploadData.success) {
-        throw new Error(
-          uploadData.message ||
-            "No fue posible subir el archivo."
-        );
-      }
-
-      // ------------------------------------------------
-      // 2. Generar contraseña del documento
-      // ------------------------------------------------
-
-      const contrasena =
-        generarContrasena();
-
-      // ------------------------------------------------
-      // 3. Registrar documento en Neon
-      // ------------------------------------------------
-
-      const documentoResponse =
-        await fetch(
-          "/api/documentos/crear",
+        const response = await fetch(
+          "/api/documentos",
           {
-            method: "POST",
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-            body: JSON.stringify({
-              nombre_archivo:
-                uploadData.archivo
-                  .nombre_original,
-
-              ruta_archivo:
-                uploadData.archivo
-                  .ruta_archivo,
-
-              empleado_id: Number(usuario.id),
-
-              empresa_id:
-                Number(empresaSeleccionada),
-
-              destinatario_id:
-                Number(
-                  destinatarioSeleccionado
-                ),
-
-              contrasena,
-
-              estado: "enviado",
-            }),
+            cache: "no-store",
           }
         );
 
-      const documentoData =
-        await documentoResponse.json();
+        if (!response.ok) {
+          throw new Error(
+            "Error consultando los documentos"
+          );
+        }
 
-      if (
-        !documentoResponse.ok ||
-        !documentoData.success
-      ) {
-        throw new Error(
-          documentoData.message ||
-            "No fue posible registrar el documento."
-        );
-      }
+        const data = await response.json();
 
-      // ------------------------------------------------
-      // 4. Mostrar resultado
-      // ------------------------------------------------
-
-      setMensaje(
-        `Documento enviado correctamente. Contraseña del documento: ${contrasena}`
-      );
-
-      setArchivo(null);
-      setEmpresaSeleccionada("");
-      setDestinatarioSeleccionado("");
-
-      const inputArchivo =
-        document.getElementById(
-          "archivo"
+        if (Array.isArray(data)) {
+          setDocuments(data);
+        } else {
+          setDocuments([]);
+        }
+      } catch (error) {
+        console.error(
+          "Error cargando documentos:",
+          error
         );
 
-      if (inputArchivo) {
-        inputArchivo.value = "";
+        setDocuments([]);
+      } finally {
+        setLoadingDocuments(false);
       }
-    } catch (error) {
-      console.error(
-        "Error enviando documento:",
-        error
-      );
+    };
 
-      setError(
-        error.message ||
-          "No fue posible enviar el documento."
-      );
-    } finally {
-      setEnviando(false);
+    loadDocuments();
+  }, []);
+
+  // ============================================================
+  // OBTENER INICIALES
+  // ============================================================
+
+  const getInitials = (name) => {
+    if (!name) {
+      return "EM";
     }
-  }
 
-  function cerrarSesion() {
-    localStorage.removeItem(
-      "docuportal_current_user"
-    );
+    const words = name
+      .trim()
+      .split(" ")
+      .filter(Boolean);
 
-    sessionStorage.removeItem(
-      "docuportal_destinatario"
-    );
+    if (words.length === 1) {
+      return words[0]
+        .substring(0, 2)
+        .toUpperCase();
+    }
 
-    sessionStorage.removeItem(
-      "docuportal_documento_autorizado"
-    );
-
-    window.location.href = "/";
-  }
-
-  const destinatariosFiltrados =
-    destinatarios.filter(
-      (destinatario) =>
-        String(
-          destinatario.empresa_id
-        ) === String(empresaSeleccionada)
-    );
-
-  if (cargando) {
     return (
-      <main
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontFamily: "Arial, sans-serif",
-          background: "#f5f7fb",
-        }}
-      >
-        <p>Cargando información...</p>
-      </main>
-    );
-  }
+      words[0][0] +
+      words[words.length - 1][0]
+    ).toUpperCase();
+  };
+
+  // ============================================================
+  // CLASE DEL ESTADO
+  // ============================================================
+
+  const getStatusClass = (status) => {
+    const normalizedStatus =
+      status?.toLowerCase();
+
+    if (normalizedStatus === "enviado") {
+      return "blue";
+    }
+
+    if (normalizedStatus === "recibido") {
+      return "green";
+    }
+
+    return "orange";
+  };
+
+  // ============================================================
+  // TIPO DE ARCHIVO
+  // ============================================================
+
+  const getFileType = (fileName) => {
+    if (!fileName) {
+      return "FILE";
+    }
+
+    const parts = fileName.split(".");
+
+    if (parts.length < 2) {
+      return "FILE";
+    }
+
+    return parts[
+      parts.length - 1
+    ].toUpperCase();
+  };
+
+  // ============================================================
+  // FORMATEAR FECHA
+  // ============================================================
+
+  const formatDate = (date) => {
+    if (!date) {
+      return "";
+    }
+
+    try {
+      return new Date(date).toLocaleDateString(
+        "es-CO",
+        {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        }
+      );
+    } catch (error) {
+      return "";
+    }
+  };
+
+  // ============================================================
+  // FILTRAR DOCUMENTOS DEL EMPLEADO
+  // ============================================================
+
+  const employeeDocuments =
+    currentUser.id
+      ? documents.filter(
+          (document) =>
+            String(document.empleado_id) ===
+            String(currentUser.id)
+        )
+      : [];
+
+  // ============================================================
+  // ESTADÍSTICAS
+  // ============================================================
+
+  const totalDocuments =
+    employeeDocuments.length;
+
+  const sentDocuments =
+    employeeDocuments.filter(
+      (document) =>
+        document.estado?.toLowerCase() ===
+        "enviado"
+    ).length;
+
+  const receivedDocuments =
+    employeeDocuments.filter(
+      (document) =>
+        document.estado?.toLowerCase() ===
+        "recibido"
+    ).length;
+
+  // ============================================================
+  // DOCUMENTOS RECIENTES
+  // ============================================================
+
+  const documentsToShow =
+    employeeDocuments.slice(0, 4);
+
+  const userInitials =
+    getInitials(currentUser.name);
 
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        background: "#f5f7fb",
-        fontFamily:
-          "Arial, sans-serif",
-        padding: "30px",
-      }}
-    >
-      <div
-        style={{
-          maxWidth: "1000px",
-          margin: "0 auto",
-        }}
-      >
-        {/* ENCABEZADO */}
+    <div className="dashboard-layout">
 
-        <div
-          style={{
-            background: "#ffffff",
-            borderRadius: "14px",
-            padding: "25px 30px",
-            marginBottom: "20px",
-            boxShadow:
-              "0 2px 10px rgba(0,0,0,0.06)",
-            display: "flex",
-            justifyContent:
-              "space-between",
-            alignItems: "center",
-            gap: "20px",
-            flexWrap: "wrap",
-          }}
-        >
-          <div>
-            <p
-              style={{
-                margin: "0 0 6px",
-                color: "#6b7280",
-                fontSize: "14px",
-              }}
-            >
-              Portal Documental
-            </p>
+      {/* ========================================================
+          MENÚ LATERAL
+      ======================================================== */}
 
-            <h1
-              style={{
-                margin: 0,
-                color: "#111827",
-                fontSize: "28px",
-              }}
-            >
-              Panel del Empleado
-            </h1>
+      <aside className="sidebar">
 
-            {usuario && (
-              <p
-                style={{
-                  margin:
-                    "8px 0 0",
-                  color: "#6b7280",
-                }}
-              >
-                Bienvenido,{" "}
-                <strong>
-                  {usuario.nombre ||
-                    "Empleado"}
-                </strong>
-              </p>
-            )}
+        {/* LOGO */}
+
+        <div className="sidebar-brand">
+
+          <div className="brand-logo">
+            D
           </div>
 
-          <button
-            onClick={cerrarSesion}
-            style={{
-              border:
-                "1px solid #d1d5db",
-              background: "#ffffff",
-              color: "#374151",
-              padding:
-                "10px 16px",
-              borderRadius: "8px",
-              cursor: "pointer",
-              fontWeight: "600",
-            }}
-          >
-            Cerrar sesión
-          </button>
+          <div>
+            <h2>DocuPortal</h2>
+
+            <span>
+              Portal documental
+            </span>
+          </div>
+
         </div>
 
-        {/* FORMULARIO */}
+        {/* NAVEGACIÓN */}
 
-        <div
-          style={{
-            background: "#ffffff",
-            borderRadius: "14px",
-            padding: "30px",
-            boxShadow:
-              "0 2px 10px rgba(0,0,0,0.06)",
-          }}
-        >
-          <h2
-            style={{
-              marginTop: 0,
-              color: "#111827",
-            }}
+        <nav className="sidebar-navigation">
+
+          <div className="navigation-section">
+            PRINCIPAL
+          </div>
+
+          {/* DASHBOARD */}
+
+          <Link
+            href="/empleado"
+            className="navigation-item active"
           >
-            Enviar documento
-          </h2>
+            <span className="navigation-icon">
+              ⌂
+            </span>
 
-          <p
-            style={{
-              color: "#6b7280",
-              marginBottom: "30px",
-            }}
+            <span>
+              Dashboard
+            </span>
+          </Link>
+
+          {/* DOCUMENTOS */}
+
+          <Link
+            href="/dashboard/documents"
+            className="navigation-item"
           >
-            Selecciona el documento,
-            la empresa y el Usuario
-            autorizado que podrá
-            acceder a él.
-          </p>
+            <span className="navigation-icon">
+              ▤
+            </span>
 
-          <form
-            onSubmit={enviarDocumento}
+            <span>
+              Documentos
+            </span>
+          </Link>
+
+          {/* ENVIADOS */}
+
+          <Link
+            href="/dashboard/documents?status=Enviado"
+            className="navigation-item"
           >
-            {/* ARCHIVO */}
+            <span className="navigation-icon">
+              ↗
+            </span>
 
-            <div
-              style={{
-                marginBottom: "22px",
-              }}
-            >
-              <label
-                htmlFor="archivo"
-                style={{
-                  display: "block",
-                  fontWeight: "600",
-                  color: "#374151",
-                  marginBottom: "8px",
-                }}
-              >
-                Documento
-              </label>
+            <span>
+              Enviados
+            </span>
+          </Link>
 
-              <input
-                id="archivo"
-                type="file"
-                onChange={
-                  seleccionarArchivo
-                }
-                accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
-                style={{
-                  width: "100%",
-                  padding: "12px",
-                  border:
-                    "1px solid #d1d5db",
-                  borderRadius: "8px",
-                  boxSizing:
-                    "border-box",
-                  background:
-                    "#ffffff",
-                }}
-              />
+          {/* RECIBIDOS */}
 
-              <p
-                style={{
-                  margin:
-                    "7px 0 0",
-                  fontSize: "13px",
-                  color: "#6b7280",
-                }}
-              >
-                Máximo 10 MB. Formatos
-                permitidos: PDF, Word,
-                Excel e imágenes.
+          <Link
+            href="/dashboard/documents?status=Recibido"
+            className="navigation-item"
+          >
+            <span className="navigation-icon">
+              ↙
+            </span>
+
+            <span>
+              Recibidos
+            </span>
+          </Link>
+
+          {/* TICKETS */}
+
+          <Link
+            href="/dashboard/tickets"
+            className="navigation-item"
+          >
+            <span className="navigation-icon">
+              □
+            </span>
+
+            <span>
+              Tickets
+            </span>
+          </Link>
+
+          {/* GESTIÓN */}
+
+          <div className="navigation-section second-section">
+            GESTIÓN
+          </div>
+
+          {/* HISTORIAL */}
+
+          <Link
+            href="/dashboard/history"
+            className="navigation-item"
+          >
+            <span className="navigation-icon">
+              ◷
+            </span>
+
+            <span>
+              Historial
+            </span>
+          </Link>
+
+        </nav>
+
+        {/* USUARIO */}
+
+        <div className="sidebar-footer">
+
+          <div className="sidebar-user">
+
+            <div className="user-avatar">
+              {userInitials}
+            </div>
+
+            <div className="sidebar-user-data">
+
+              <strong>
+                {currentUser.name}
+              </strong>
+
+              <span>
+                {currentUser.role}
+              </span>
+
+            </div>
+
+          </div>
+
+          {/* CERRAR SESIÓN */}
+
+          <LogoutButton className="logout-link">
+
+            <span>
+              ↪
+            </span>
+
+            Cerrar sesión
+
+          </LogoutButton>
+
+        </div>
+
+      </aside>
+
+      {/* ========================================================
+          CONTENIDO PRINCIPAL
+      ======================================================== */}
+
+      <main className="dashboard-main">
+
+        {/* ENCABEZADO */}
+
+        <header className="dashboard-header">
+
+          <div className="header-title">
+
+            <span>
+              PORTAL DOCUMENTAL
+            </span>
+
+            <h1>
+              Dashboard
+            </h1>
+
+          </div>
+
+          <div className="header-right">
+
+            <div className="header-user">
+
+              <div className="header-user-avatar">
+                {userInitials}
+              </div>
+
+              <div className="header-user-data">
+
+                <strong>
+                  {currentUser.name}
+                </strong>
+
+                <span>
+                  {currentUser.role}
+                </span>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </header>
+
+        {/* CONTENIDO */}
+
+        <div className="dashboard-content">
+
+          {/* BIENVENIDA */}
+
+          <section className="welcome-card">
+
+            <div className="welcome-content">
+
+              <span className="welcome-eyebrow">
+                PANEL DEL EMPLEADO
+              </span>
+
+              <h2>
+                Hola,{" "}
+                {currentUser.name.split(" ")[0]} 👋
+              </h2>
+
+              <p>
+                Bienvenido al portal documental.
+                Desde aquí puedes consultar tus
+                documentos, revisar el historial
+                y realizar seguimiento de tu
+                actividad.
               </p>
 
-              {archivo && (
-                <p
-                  style={{
-                    marginTop: "8px",
-                    color: "#374151",
-                    fontSize: "14px",
-                  }}
+            </div>
+
+          </section>
+
+          {/* INDICADORES */}
+
+          <section className="stats-grid">
+
+            {/* DOCUMENTOS ENVIADOS */}
+
+            <article className="stat-card">
+
+              <div className="stat-card-top">
+
+                <div className="stat-icon blue">
+                  ↗
+                </div>
+
+                <span className="stat-label">
+                  Documentos enviados
+                </span>
+
+              </div>
+
+              <div className="stat-card-bottom">
+
+                <strong>
+                  {sentDocuments}
+                </strong>
+
+                <span className="stat-description">
+                  En el sistema
+                </span>
+
+              </div>
+
+            </article>
+
+            {/* DOCUMENTOS RECIBIDOS */}
+
+            <article className="stat-card">
+
+              <div className="stat-card-top">
+
+                <div className="stat-icon green">
+                  ↙
+                </div>
+
+                <span className="stat-label">
+                  Documentos recibidos
+                </span>
+
+              </div>
+
+              <div className="stat-card-bottom">
+
+                <strong>
+                  {receivedDocuments}
+                </strong>
+
+                <span className="stat-description">
+                  En el sistema
+                </span>
+
+              </div>
+
+            </article>
+
+            {/* TOTAL */}
+
+            <article className="stat-card">
+
+              <div className="stat-card-top">
+
+                <div className="stat-icon purple">
+                  ▤
+                </div>
+
+                <span className="stat-label">
+                  Total documentos
+                </span>
+
+              </div>
+
+              <div className="stat-card-bottom">
+
+                <strong>
+                  {totalDocuments}
+                </strong>
+
+                <span className="stat-description">
+                  Registrados
+                </span>
+
+              </div>
+
+            </article>
+
+            {/* ACTIVIDAD */}
+
+            <article className="stat-card">
+
+              <div className="stat-card-top">
+
+                <div className="stat-icon orange">
+                  ◷
+                </div>
+
+                <span className="stat-label">
+                  Actividad
+                </span>
+
+              </div>
+
+              <div className="stat-card-bottom">
+
+                <strong>
+                  →
+                </strong>
+
+                <span className="stat-description">
+                  Ver historial
+                </span>
+
+              </div>
+
+            </article>
+
+          </section>
+
+          {/* CONTENIDO INFERIOR */}
+
+          <section className="dashboard-columns">
+
+            {/* DOCUMENTOS RECIENTES */}
+
+            <div className="content-card">
+
+              <div className="content-card-header">
+
+                <div>
+
+                  <span>
+                    ACTIVIDAD RECIENTE
+                  </span>
+
+                  <h2>
+                    Mis documentos recientes
+                  </h2>
+
+                </div>
+
+                <Link
+                  href="/dashboard/documents"
+                  className="view-all-link"
                 >
-                  Archivo seleccionado:{" "}
+                  Ver todos
+                </Link>
+
+              </div>
+
+              <div className="documents-list">
+
+                {loadingDocuments ? (
+
+                  <div className="recent-document">
+
+                    <div className="recent-document-info">
+
+                      <strong>
+                        Cargando documentos...
+                      </strong>
+
+                    </div>
+
+                  </div>
+
+                ) : documentsToShow.length === 0 ? (
+
+                  <div className="recent-document">
+
+                    <div className="recent-document-info">
+
+                      <strong>
+                        No tienes documentos registrados
+                      </strong>
+
+                      <span>
+                        Los documentos que envíes
+                        aparecerán aquí.
+                      </span>
+
+                    </div>
+
+                  </div>
+
+                ) : (
+
+                  documentsToShow.map(
+                    (document) => {
+
+                      const fileType =
+                        getFileType(
+                          document.nombre_archivo
+                        );
+
+                      return (
+                        <div
+                          key={document.id}
+                          className="recent-document"
+                        >
+
+                          {/* TIPO */}
+
+                          <div
+                            className={`document-type ${fileType.toLowerCase()}`}
+                          >
+                            {fileType}
+                          </div>
+
+                          {/* INFORMACIÓN */}
+
+                          <div className="recent-document-info">
+
+                            <strong>
+                              {document.nombre_archivo}
+                            </strong>
+
+                            <span>
+                              DOC-
+                              {String(
+                                document.id
+                              ).padStart(3, "0")}
+                              {" · "}
+                              {formatDate(
+                                document.creado_en
+                              )}
+                              {" · "}
+                              {document.empresa ||
+                                "Sin empresa"}
+                            </span>
+
+                          </div>
+
+                          {/* ESTADO */}
+
+                          <span
+                            className={`status-badge ${getStatusClass(
+                              document.estado
+                            )}`}
+                          >
+
+                            <span className="status-dot"></span>
+
+                            {document.estado ||
+                              "Pendiente"}
+
+                          </span>
+
+                        </div>
+                      );
+                    }
+                  )
+
+                )}
+
+              </div>
+
+            </div>
+
+            {/* RESUMEN */}
+
+            <div className="content-card">
+
+              <div className="content-card-header">
+
+                <div>
+
+                  <span>
+                    RESUMEN
+                  </span>
+
+                  <h2>
+                    Mi actividad
+                  </h2>
+
+                </div>
+
+                <Link
+                  href="/dashboard/history"
+                  className="view-all-link"
+                >
+                  Ver historial
+                </Link>
+
+              </div>
+
+              <div className="tickets-list">
+
+                <div className="ticket-item">
+
+                  <div className="ticket-icon">
+                    ✓
+                  </div>
+
+                  <div className="ticket-info">
+
+                    <strong>
+                      Documentos registrados
+                    </strong>
+
+                    <span>
+                      {totalDocuments} documentos
+                      registrados
+                    </span>
+
+                  </div>
+
+                </div>
+
+                <div className="ticket-item">
+
+                  <div className="ticket-icon">
+                    ↗
+                  </div>
+
+                  <div className="ticket-info">
+
+                    <strong>
+                      Documentos enviados
+                    </strong>
+
+                    <span>
+                      {sentDocuments} documentos
+                      enviados
+                    </span>
+
+                  </div>
+
+                </div>
+
+                <div className="ticket-item">
+
+                  <div className="ticket-icon">
+                    🔐
+                  </div>
+
+                  <div className="ticket-info">
+
+                    <strong>
+                      Seguridad y actividad
+                    </strong>
+
+                    <span>
+                      Consulta la actividad de tus
+                      documentos
+                    </span>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+              <div className="ticket-footer">
+
+                <Link
+                  href="/dashboard/history"
+                  className="secondary-button"
+                >
+                  Ver actividad
+                </Link>
+
+              </div>
+
+            </div>
+
+          </section>
+
+          {/* ACCIONES RÁPIDAS */}
+
+          <section className="quick-actions">
+
+            <div className="quick-actions-header">
+
+              <span>
+                ACCIONES RÁPIDAS
+              </span>
+
+              <h2>
+                ¿Qué deseas hacer?
+              </h2>
+
+            </div>
+
+            <div className="quick-actions-grid">
+
+              {/* CONSULTAR DOCUMENTOS */}
+
+              <Link
+                href="/dashboard/documents"
+                className="quick-action"
+              >
+
+                <div className="quick-action-icon green">
+                  ▤
+                </div>
+
+                <div>
+
                   <strong>
-                    {archivo.name}
+                    Consultar documentos
                   </strong>
-                </p>
-              )}
+
+                  <span>
+                    Ver mis documentos
+                  </span>
+
+                </div>
+
+                <span className="quick-action-arrow">
+                  →
+                </span>
+
+              </Link>
+
+              {/* HISTORIAL */}
+
+              <Link
+                href="/dashboard/history"
+                className="quick-action"
+              >
+
+                <div className="quick-action-icon orange">
+                  ◷
+                </div>
+
+                <div>
+
+                  <strong>
+                    Consultar historial
+                  </strong>
+
+                  <span>
+                    Revisar mi actividad
+                  </span>
+
+                </div>
+
+                <span className="quick-action-arrow">
+                  →
+                </span>
+
+              </Link>
+
             </div>
 
-            {/* EMPRESA */}
+          </section>
 
-            <div
-              style={{
-                marginBottom: "22px",
-              }}
-            >
-              <label
-                htmlFor="empresa"
-                style={{
-                  display: "block",
-                  fontWeight: "600",
-                  color: "#374151",
-                  marginBottom: "8px",
-                }}
-              >
-                Empresa
-              </label>
-
-              <select
-                id="empresa"
-                value={
-                  empresaSeleccionada
-                }
-                onChange={(event) => {
-                  setEmpresaSeleccionada(
-                    event.target.value
-                  );
-
-                  setDestinatarioSeleccionado(
-                    ""
-                  );
-
-                  setMensaje("");
-                  setError("");
-                }}
-                style={{
-                  width: "100%",
-                  padding: "12px",
-                  border:
-                    "1px solid #d1d5db",
-                  borderRadius: "8px",
-                  background:
-                    "#ffffff",
-                  color: "#111827",
-                  boxSizing:
-                    "border-box",
-                }}
-              >
-                <option value="">
-                  Selecciona una empresa
-                </option>
-
-                {empresas.map(
-                  (empresa) => (
-                    <option
-                      key={empresa.id}
-                      value={empresa.id}
-                    >
-                      {empresa.nombre}
-                    </option>
-                  )
-                )}
-              </select>
-            </div>
-
-            {/* USUARIO AUTORIZADO */}
-
-            <div
-              style={{
-                marginBottom: "25px",
-              }}
-            >
-              <label
-                htmlFor="destinatario"
-                style={{
-                  display: "block",
-                  fontWeight: "600",
-                  color: "#374151",
-                  marginBottom: "8px",
-                }}
-              >
-                Usuario autorizado
-              </label>
-
-              <select
-                id="destinatario"
-                value={
-                  destinatarioSeleccionado
-                }
-                onChange={(event) => {
-                  setDestinatarioSeleccionado(
-                    event.target.value
-                  );
-
-                  setMensaje("");
-                  setError("");
-                }}
-                disabled={
-                  !empresaSeleccionada
-                }
-                style={{
-                  width: "100%",
-                  padding: "12px",
-                  border:
-                    "1px solid #d1d5db",
-                  borderRadius: "8px",
-                  background:
-                    empresaSeleccionada
-                      ? "#ffffff"
-                      : "#f3f4f6",
-                  color: "#111827",
-                  boxSizing:
-                    "border-box",
-                }}
-              >
-                <option value="">
-                  {empresaSeleccionada
-                    ? "Selecciona un Usuario"
-                    : "Primero selecciona una empresa"}
-                </option>
-
-                {destinatariosFiltrados
-                  .filter(
-                    (destinatario) =>
-                      destinatario.activo
-                  )
-                  .map(
-                    (destinatario) => (
-                      <option
-                        key={
-                          destinatario.id
-                        }
-                        value={
-                          destinatario.id
-                        }
-                      >
-                        {destinatario.nombre}{" "}
-                        —{" "}
-                        {destinatario.correo}
-                      </option>
-                    )
-                  )}
-              </select>
-
-              {empresaSeleccionada &&
-                destinatariosFiltrados
-                  .filter(
-                    (destinatario) =>
-                      destinatario.activo
-                  )
-                  .length ===
-                  0 && (
-                  <p
-                    style={{
-                      marginTop:
-                        "8px",
-                      color:
-                        "#dc2626",
-                      fontSize:
-                        "14px",
-                    }}
-                  >
-                    No hay Usuarios
-                    autorizados activos
-                    para esta empresa.
-                  </p>
-                )}
-            </div>
-
-            {/* MENSAJES */}
-
-            {error && (
-              <div
-                style={{
-                  background:
-                    "#fef2f2",
-                  border:
-                    "1px solid #fecaca",
-                  color: "#b91c1c",
-                  padding: "14px",
-                  borderRadius: "8px",
-                  marginBottom:
-                    "20px",
-                }}
-              >
-                {error}
-              </div>
-            )}
-
-            {mensaje && (
-              <div
-                style={{
-                  background:
-                    "#ecfdf5",
-                  border:
-                    "1px solid #a7f3d0",
-                  color: "#047857",
-                  padding: "14px",
-                  borderRadius: "8px",
-                  marginBottom:
-                    "20px",
-                  lineHeight:
-                    "1.5",
-                }}
-              >
-                {mensaje}
-              </div>
-            )}
-
-            {/* BOTÓN */}
-
-            <button
-              type="submit"
-              disabled={enviando}
-              style={{
-                width: "100%",
-                border: "none",
-                background:
-                  enviando
-                    ? "#9ca3af"
-                    : "#111827",
-                color: "#ffffff",
-                padding: "14px 20px",
-                borderRadius: "8px",
-                cursor: enviando
-                  ? "not-allowed"
-                  : "pointer",
-                fontWeight: "600",
-                fontSize: "15px",
-              }}
-            >
-              {enviando
-                ? "Enviando documento..."
-                : "🔐 Enviar documento"}
-            </button>
-          </form>
         </div>
-      </div>
-    </main>
+
+      </main>
+
+    </div>
   );
 }

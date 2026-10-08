@@ -1,4 +1,21 @@
 import pool from "@/lib/db";
+import { cookies } from "next/headers";
+import crypto from "crypto";
+
+const SESSION_SECRET =
+  process.env.SESSION_SECRET ||
+  "docuportal-secret-desarrollo";
+
+function createRecipientSessionToken(destinatarioId) {
+  const payload = String(destinatarioId);
+
+  const signature = crypto
+    .createHmac("sha256", SESSION_SECRET)
+    .update(`destinatario:${payload}`)
+    .digest("hex");
+
+  return `${payload}.${signature}`;
+}
 
 export async function POST(request) {
   try {
@@ -80,15 +97,46 @@ export async function POST(request) {
       );
     }
 
+    // ============================================================
+    // CREAR SESIÓN DEL DESTINATARIO
+    // ============================================================
+
+    const sessionToken =
+      createRecipientSessionToken(
+        destinatario.id
+      );
+
+    const cookieStore = await cookies();
+
+    cookieStore.set(
+      "docuportal_destinatario_session",
+      sessionToken,
+      {
+        httpOnly: true,
+        secure:
+          process.env.NODE_ENV ===
+          "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60 * 8,
+      }
+    );
+
+    // ============================================================
+    // RESPUESTA
+    // ============================================================
+
     return Response.json({
       success: true,
       message:
         "Inicio de sesión correcto.",
+
       destinatario: {
         id: destinatario.id,
         nombre: destinatario.nombre,
         correo: destinatario.correo,
-        empresa_id: destinatario.empresa_id,
+        empresa_id:
+          destinatario.empresa_id,
         empresa: destinatario.empresa,
         role: "Destinatario",
       },

@@ -8,14 +8,40 @@ export default function DashboardLayout({ children }) {
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    const currentUser = localStorage.getItem("docuportal_current_user");
+    const verifySession = async () => {
+      try {
+        const response = await fetch(
+          "/api/usuarios/sesion",
+          {
+            method: "GET",
+            cache: "no-store",
+          }
+        );
 
-    if (!currentUser) {
-      router.replace("/login");
-      return;
-    }
+        if (!response.ok) {
+          router.replace("/login");
+          return;
+        }
 
-    setChecking(false);
+        const data = await response.json();
+
+        if (!data.success || !data.usuario) {
+          router.replace("/login");
+          return;
+        }
+
+        setChecking(false);
+      } catch (error) {
+        console.error(
+          "Error verificando la sesión:",
+          error
+        );
+
+        router.replace("/login");
+      }
+    };
+
+    verifySession();
   }, [router]);
 
   if (checking) {

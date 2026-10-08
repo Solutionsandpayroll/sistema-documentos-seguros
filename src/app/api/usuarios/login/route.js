@@ -1,4 +1,21 @@
 import pool from "@/lib/db";
+import { cookies } from "next/headers";
+import crypto from "crypto";
+
+const SESSION_SECRET =
+  process.env.SESSION_SECRET ||
+  "docuportal-secret-desarrollo";
+
+function createSessionToken(userId) {
+  const payload = String(userId);
+
+  const signature = crypto
+    .createHmac("sha256", SESSION_SECRET)
+    .update(payload)
+    .digest("hex");
+
+  return `${payload}.${signature}`;
+}
 
 export async function POST(request) {
   try {
@@ -48,16 +65,31 @@ export async function POST(request) {
 
     const usuario = result.rows[0];
 
-    if (usuario.rol.toLowerCase() !== "empleado") {
+    const rolUsuario = usuario.rol
+      ? usuario.rol.trim().toLowerCase()
+      : "";
+
+    // ==========================================================
+    // VALIDAR ROL
+    // ==========================================================
+
+    if (
+      rolUsuario !== "empleado" &&
+      rolUsuario !== "administrador"
+    ) {
       return Response.json(
         {
           success: false,
           message:
-            "Este usuario no tiene permisos de empleado.",
+            "Este usuario no tiene permisos para iniciar sesión.",
         },
         { status: 403 }
       );
     }
+
+    // ==========================================================
+    // VALIDAR CONTRASEÑA
+    // ==========================================================
 
     if (usuario.contrasena !== contrasena) {
       return Response.json(
@@ -70,8 +102,34 @@ export async function POST(request) {
       );
     }
 
+    // ==========================================================
+    // CREAR SESIÓN
+    // ==========================================================
+
+    const sessionToken =
+      createSessionToken(usuario.id);
+
+    const cookieStore = await cookies();
+
+    cookieStore.set(
+      "docuportal_session",
+      sessionToken,
+      {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60 * 8,
+      }
+    );
+
+    // ==========================================================
+    // RESPUESTA
+    // ==========================================================
+
     return Response.json({
       success: true,
+
       usuario: {
         id: usuario.id,
         nombre: usuario.nombre,
@@ -81,7 +139,7 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error(
-      "Error en login de empleado:",
+      "Error en login de usuario:",
       error
     );
 

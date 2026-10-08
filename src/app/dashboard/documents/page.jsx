@@ -1,18 +1,51 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useState,
+} from "react";
+
+import {
+  usePathname,
+  useSearchParams,
+} from "next/navigation";
+
 import "./documents.css";
+import "../dashboard.css";
+
+import LogoutButton from "@/components/LogoutButton";
 
 export default function DocumentsPage() {
+  // ============================================================
+  // RUTA ACTUAL
+  // ============================================================
+
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const status = searchParams.get("status");
+
+  // ============================================================
+  // USUARIO ACTUAL
+  // ============================================================
+
   const [currentUser, setCurrentUser] = useState({
     name: "Administrador",
     role: "Administrador",
   });
 
+  // ============================================================
+  // DOCUMENTOS
+  // ============================================================
+
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+
+  // ============================================================
+  // CARGAR USUARIO
+  // ============================================================
 
   useEffect(() => {
     try {
@@ -28,6 +61,7 @@ export default function DocumentsPage() {
             user.name ||
             user.nombre ||
             "Administrador",
+
           role:
             user.role ||
             user.rol ||
@@ -41,6 +75,10 @@ export default function DocumentsPage() {
       );
     }
   }, []);
+
+  // ============================================================
+  // CARGAR DOCUMENTOS
+  // ============================================================
 
   useEffect(() => {
     const loadDocuments = async () => {
@@ -63,7 +101,9 @@ export default function DocumentsPage() {
         const data = await response.json();
 
         setDocuments(
-          Array.isArray(data) ? data : []
+          Array.isArray(data)
+            ? data
+            : []
         );
       } catch (error) {
         console.error(
@@ -80,8 +120,14 @@ export default function DocumentsPage() {
     loadDocuments();
   }, []);
 
+  // ============================================================
+  // INICIALES
+  // ============================================================
+
   const getInitials = (name) => {
-    if (!name) return "AD";
+    if (!name) {
+      return "AD";
+    }
 
     const words = name
       .trim()
@@ -100,17 +146,126 @@ export default function DocumentsPage() {
     ).toUpperCase();
   };
 
+  // ============================================================
+  // CLASE DE NAVEGACIÓN
+  // ============================================================
+
+  const getNavigationClass = (item) => {
+    const baseClass =
+      "navigation-item";
+
+    // Dashboard
+
+    if (
+      item === "dashboard" &&
+      pathname === "/dashboard"
+    ) {
+      return `${baseClass} active`;
+    }
+
+    // Documentos
+
+    if (
+      item === "documents" &&
+      (
+        pathname ===
+          "/dashboard/documents" ||
+        pathname === "/dashboard/new"
+      ) &&
+      status !== "Enviado" &&
+      status !== "Recibido"
+    ) {
+      return `${baseClass} active`;
+    }
+
+    // Enviados
+
+    if (
+      item === "sent" &&
+      pathname ===
+        "/dashboard/documents" &&
+      status === "Enviado"
+    ) {
+      return `${baseClass} active`;
+    }
+
+    // Recibidos
+
+    if (
+      item === "received" &&
+      pathname ===
+        "/dashboard/documents" &&
+      status === "Recibido"
+    ) {
+      return `${baseClass} active`;
+    }
+
+    // Tickets
+
+    if (
+      item === "tickets" &&
+      pathname ===
+        "/dashboard/tickets"
+    ) {
+      return `${baseClass} active`;
+    }
+
+    // Historial
+
+    if (
+      item === "history" &&
+      pathname ===
+        "/dashboard/history"
+    ) {
+      return `${baseClass} active`;
+    }
+
+    // Mi cuenta
+
+    if (
+      item === "account" &&
+      pathname ===
+        "/dashboard/configuracion"
+    ) {
+      return `${baseClass} active`;
+    }
+
+    // Administración
+
+    if (
+      item === "admin" &&
+      pathname === "/admin"
+    ) {
+      return `${baseClass} active`;
+    }
+
+    return baseClass;
+  };
+
+  // ============================================================
+  // TIPO DE ARCHIVO
+  // ============================================================
+
   const getFileType = (fileName) => {
-    if (!fileName) return "FILE";
+    if (!fileName) {
+      return "FILE";
+    }
 
-    const parts = fileName.split(".");
+    const parts =
+      fileName.split(".");
 
-    if (parts.length < 2) return "FILE";
+    if (parts.length < 2) {
+      return "FILE";
+    }
 
     return parts[
       parts.length - 1
     ].toUpperCase();
   };
+
+  // ============================================================
+  // ICONO / CLASE DEL ARCHIVO
+  // ============================================================
 
   const getFileIconClass = (fileName) => {
     const extension =
@@ -119,7 +274,9 @@ export default function DocumentsPage() {
         .pop()
         ?.toLowerCase();
 
-    if (extension === "pdf") return "pdf";
+    if (extension === "pdf") {
+      return "pdf";
+    }
 
     if (
       extension === "xlsx" ||
@@ -146,9 +303,13 @@ export default function DocumentsPage() {
     return "file";
   };
 
-  const getStatusClass = (status) => {
+  // ============================================================
+  // ESTADO DEL DOCUMENTO
+  // ============================================================
+
+  const getStatusClass = (documentStatus) => {
     const normalized =
-      status?.toLowerCase();
+      documentStatus?.toLowerCase();
 
     if (normalized === "enviado") {
       return "sent";
@@ -161,24 +322,63 @@ export default function DocumentsPage() {
     return "pending";
   };
 
+  // ============================================================
+  // FORMATEAR FECHA
+  // ============================================================
+
   const formatDate = (date) => {
-    if (!date) return "";
+    if (!date) {
+      return "";
+    }
 
     try {
       return new Date(
         date
-      ).toLocaleDateString("es-CO", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      });
+      ).toLocaleDateString(
+        "es-CO",
+        {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        }
+      );
     } catch {
       return "";
     }
   };
 
+  // ============================================================
+  // DOCUMENTOS FILTRADOS
+  // ============================================================
+
   const filteredDocuments =
     documents.filter((document) => {
+
+      // --------------------------------------------------------
+      // FILTRO POR ESTADO
+      // --------------------------------------------------------
+
+      const documentStatus =
+        document.estado?.toLowerCase();
+
+      if (
+        status === "Enviado" &&
+        documentStatus !== "enviado"
+      ) {
+        return false;
+      }
+
+      if (
+        status === "Recibido" &&
+        documentStatus !== "recibido"
+      ) {
+        return false;
+      }
+
+      // --------------------------------------------------------
+      // BÚSQUEDA
+      // --------------------------------------------------------
+
       const text =
         search.toLowerCase();
 
@@ -186,20 +386,28 @@ export default function DocumentsPage() {
         document.nombre_archivo
           ?.toLowerCase()
           .includes(text) ||
+
         document.empresa
           ?.toLowerCase()
           .includes(text) ||
+
         document.empleado
           ?.toLowerCase()
           .includes(text) ||
+
         document.destinatario
           ?.toLowerCase()
           .includes(text) ||
+
         document.correo
           ?.toLowerCase()
           .includes(text)
       );
     });
+
+  // ============================================================
+  // ESTADÍSTICAS
+  // ============================================================
 
   const totalDocuments =
     documents.length;
@@ -218,24 +426,68 @@ export default function DocumentsPage() {
         "recibido"
     ).length;
 
+  // ============================================================
+  // INICIALES DEL USUARIO
+  // ============================================================
+
   const userInitials =
-    getInitials(currentUser.name);
+    getInitials(
+      currentUser.name
+    );
+
+  // ============================================================
+  // TÍTULO SEGÚN FILTRO
+  // ============================================================
+
+  const getPageTitle = () => {
+    if (status === "Enviado") {
+      return "Documentos enviados";
+    }
+
+    if (status === "Recibido") {
+      return "Documentos recibidos";
+    }
+
+    return "Todos los documentos";
+  };
+
+  const getPageDescription = () => {
+    if (status === "Enviado") {
+      return "Consulta los documentos enviados desde el sistema.";
+    }
+
+    if (status === "Recibido") {
+      return "Consulta los documentos recibidos en el sistema.";
+    }
+
+    return "Consulta los documentos registrados en el sistema.";
+  };
+
+  // ============================================================
+  // RENDER
+  // ============================================================
 
   return (
-    <div className="documents-layout">
+    <div className="dashboard-layout">
 
-      {/* SIDEBAR */}
+      {/* ======================================================
+          SIDEBAR
+      ====================================================== */}
 
-      <aside className="documents-sidebar">
+      <aside className="sidebar">
 
-        <div className="documents-sidebar-brand">
+        {/* LOGO */}
 
-          <div className="documents-brand-logo">
+        <div className="sidebar-brand">
+
+          <div className="brand-logo">
             D
           </div>
 
           <div>
-            <h2>DocuPortal</h2>
+            <h2>
+              DocuPortal
+            </h2>
 
             <span>
               Portal documental
@@ -244,17 +496,23 @@ export default function DocumentsPage() {
 
         </div>
 
-        <nav className="documents-sidebar-navigation">
+        {/* NAVEGACIÓN */}
 
-          <div className="documents-navigation-section">
+        <nav className="sidebar-navigation">
+
+          <div className="navigation-section">
             PRINCIPAL
           </div>
 
+          {/* DASHBOARD */}
+
           <Link
             href="/dashboard"
-            className="documents-navigation-item"
+            className={getNavigationClass(
+              "dashboard"
+            )}
           >
-            <span className="documents-navigation-icon">
+            <span className="navigation-icon">
               ⌂
             </span>
 
@@ -263,11 +521,15 @@ export default function DocumentsPage() {
             </span>
           </Link>
 
+          {/* DOCUMENTOS */}
+
           <Link
             href="/dashboard/documents"
-            className="documents-navigation-item active"
+            className={getNavigationClass(
+              "documents"
+            )}
           >
-            <span className="documents-navigation-icon">
+            <span className="navigation-icon">
               ▤
             </span>
 
@@ -276,11 +538,15 @@ export default function DocumentsPage() {
             </span>
           </Link>
 
+          {/* ENVIADOS */}
+
           <Link
-            href="/dashboard/sent"
-            className="documents-navigation-item"
+            href="/dashboard/documents?status=Enviado"
+            className={getNavigationClass(
+              "sent"
+            )}
           >
-            <span className="documents-navigation-icon">
+            <span className="navigation-icon">
               ↗
             </span>
 
@@ -289,11 +555,15 @@ export default function DocumentsPage() {
             </span>
           </Link>
 
+          {/* RECIBIDOS */}
+
           <Link
-            href="/dashboard/received"
-            className="documents-navigation-item"
+            href="/dashboard/documents?status=Recibido"
+            className={getNavigationClass(
+              "received"
+            )}
           >
-            <span className="documents-navigation-icon">
+            <span className="navigation-icon">
               ↙
             </span>
 
@@ -302,11 +572,15 @@ export default function DocumentsPage() {
             </span>
           </Link>
 
+          {/* TICKETS */}
+
           <Link
             href="/dashboard/tickets"
-            className="documents-navigation-item"
+            className={getNavigationClass(
+              "tickets"
+            )}
           >
-            <span className="documents-navigation-icon">
+            <span className="navigation-icon">
               □
             </span>
 
@@ -315,15 +589,23 @@ export default function DocumentsPage() {
             </span>
           </Link>
 
-          <div className="documents-navigation-section documents-second-section">
+          {/* ==================================================
+              GESTIÓN
+              ================================================== */}
+
+          <div className="navigation-section second-section">
             GESTIÓN
           </div>
 
+          {/* HISTORIAL */}
+
           <Link
             href="/dashboard/history"
-            className="documents-navigation-item"
+            className={getNavigationClass(
+              "history"
+            )}
           >
-            <span className="documents-navigation-icon">
+            <span className="navigation-icon">
               ◷
             </span>
 
@@ -332,13 +614,37 @@ export default function DocumentsPage() {
             </span>
           </Link>
 
+          {/* MI CUENTA */}
+
+          {currentUser.role ===
+            "Administrador" && (
+            <Link
+              href="/dashboard/configuracion"
+              className={getNavigationClass(
+                "account"
+              )}
+            >
+              <span className="navigation-icon">
+                ◉
+              </span>
+
+              <span>
+                Mi cuenta
+              </span>
+            </Link>
+          )}
+
+          {/* ADMINISTRACIÓN */}
+
           {currentUser.role ===
             "Administrador" && (
             <Link
               href="/admin"
-              className="documents-navigation-item"
+              className={getNavigationClass(
+                "admin"
+              )}
             >
-              <span className="documents-navigation-icon">
+              <span className="navigation-icon">
                 ⚙
               </span>
 
@@ -350,15 +656,17 @@ export default function DocumentsPage() {
 
         </nav>
 
-        <div className="documents-sidebar-footer">
+        {/* USUARIO */}
 
-          <div className="documents-sidebar-user">
+        <div className="sidebar-footer">
 
-            <div className="documents-user-avatar">
+          <div className="sidebar-user">
+
+            <div className="user-avatar">
               {userInitials}
             </div>
 
-            <div className="documents-sidebar-user-data">
+            <div className="sidebar-user-data">
 
               <strong>
                 {currentUser.name}
@@ -372,35 +680,34 @@ export default function DocumentsPage() {
 
           </div>
 
-          <button
-            className="documents-logout-button"
-            onClick={() => {
-              localStorage.removeItem(
-                "docuportal_current_user"
-              );
+          {/* CERRAR SESIÓN */}
 
-              window.location.href =
-                "/login";
-            }}
+          <LogoutButton
+            className="logout-link"
           >
             <span>
               ↪
             </span>
 
             Cerrar sesión
-          </button>
+          </LogoutButton>
 
         </div>
 
       </aside>
 
-      {/* CONTENIDO */}
+      {/* ======================================================
+          CONTENIDO PRINCIPAL
+      ====================================================== */}
 
-      <main className="documents-main">
+      <main className="dashboard-main">
 
-        <header className="documents-top-header">
+        {/* HEADER */}
 
-          <div>
+        <header className="dashboard-header">
+
+          <div className="header-title">
+
             <span>
               PORTAL DOCUMENTAL
             </span>
@@ -408,23 +715,28 @@ export default function DocumentsPage() {
             <h1>
               Documentos
             </h1>
+
           </div>
 
-          <div className="documents-header-user">
+          <div className="header-right">
 
-            <div className="documents-header-avatar">
-              {userInitials}
-            </div>
+            <div className="header-user">
 
-            <div>
+              <div className="header-user-avatar">
+                {userInitials}
+              </div>
 
-              <strong>
-                {currentUser.name}
-              </strong>
+              <div className="header-user-data">
 
-              <span>
-                {currentUser.role}
-              </span>
+                <strong>
+                  {currentUser.name}
+                </strong>
+
+                <span>
+                  {currentUser.role}
+                </span>
+
+              </div>
 
             </div>
 
@@ -432,7 +744,15 @@ export default function DocumentsPage() {
 
         </header>
 
-        <div className="documents-page-content">
+        {/* ====================================================
+            CONTENIDO
+            ==================================================== */}
+
+        <div className="dashboard-content">
+
+          {/* ==================================================
+              INTRODUCCIÓN
+              ================================================== */}
 
           <section className="documents-intro">
 
@@ -443,26 +763,35 @@ export default function DocumentsPage() {
               </span>
 
               <h2>
-                Todos los documentos
+                {getPageTitle()}
               </h2>
 
               <p>
-                Consulta los documentos
-                registrados en el sistema.
+                {getPageDescription()}
               </p>
 
             </div>
 
-            <Link
-              href="/dashboard/new"
-              className="new-document-button"
-            >
-              + Nuevo documento
-            </Link>
+            {/* ==================================================
+                NUEVO DOCUMENTO
+                SOLO APARECE EN DOCUMENTOS
+                ================================================== */}
+
+            {status !== "Enviado" &&
+              status !== "Recibido" && (
+                <Link
+                  href="/dashboard/new"
+                  className="new-document-button"
+                >
+                  + Nuevo documento
+                </Link>
+              )}
 
           </section>
 
-          {/* ESTADÍSTICAS */}
+          {/* ==================================================
+              ESTADÍSTICAS
+              ================================================== */}
 
           <section className="document-stats">
 
@@ -504,7 +833,9 @@ export default function DocumentsPage() {
 
           </section>
 
-          {/* BUSCADOR */}
+          {/* ==================================================
+              BÚSQUEDA
+              ================================================== */}
 
           <section className="documents-filters">
 
@@ -529,7 +860,9 @@ export default function DocumentsPage() {
 
           </section>
 
-          {/* TABLA */}
+          {/* ==================================================
+              TABLA
+              ================================================== */}
 
           <section className="documents-table-card">
 
@@ -542,23 +875,35 @@ export default function DocumentsPage() {
                 </span>
 
                 <h2>
-                  Documentos registrados
+                  {status === "Enviado"
+                    ? "Documentos enviados"
+                    : status === "Recibido"
+                    ? "Documentos recibidos"
+                    : "Documentos registrados"}
                 </h2>
 
               </div>
 
               <span className="results-count">
+
                 {filteredDocuments.length}{" "}
+
                 resultado
                 {filteredDocuments.length !==
                 1
                   ? "s"
                   : ""}
+
               </span>
 
             </div>
 
+            {/* ==================================================
+                CARGANDO
+                ================================================== */}
+
             {loading ? (
+
               <div className="documents-empty">
 
                 <div className="loading-icon">
@@ -570,8 +915,14 @@ export default function DocumentsPage() {
                 </h3>
 
               </div>
+
             ) : filteredDocuments.length ===
               0 ? (
+
+              /* =================================================
+                 SIN DOCUMENTOS
+                 ================================================= */
+
               <div className="documents-empty">
 
                 <div className="empty-icon">
@@ -588,7 +939,13 @@ export default function DocumentsPage() {
                 </p>
 
               </div>
+
             ) : (
+
+              /* =================================================
+                 TABLA
+                 ================================================= */
+
               <div className="table-wrapper">
 
                 <table className="documents-table">
@@ -641,11 +998,12 @@ export default function DocumentsPage() {
                           );
 
                         return (
+
                           <tr
-                            key={
-                              document.id
-                            }
+                            key={document.id}
                           >
+
+                            {/* DOCUMENTO */}
 
                             <td>
 
@@ -681,14 +1039,20 @@ export default function DocumentsPage() {
 
                             </td>
 
+                            {/* EMPRESA */}
+
                             <td>
 
                               <span className="company-name">
+
                                 {document.empresa ||
                                   "Sin empresa"}
+
                               </span>
 
                             </td>
+
+                            {/* EMPLEADO */}
 
                             <td>
 
@@ -702,6 +1066,8 @@ export default function DocumentsPage() {
                               </div>
 
                             </td>
+
+                            {/* USUARIO */}
 
                             <td>
 
@@ -721,6 +1087,8 @@ export default function DocumentsPage() {
 
                             </td>
 
+                            {/* ESTADO */}
+
                             <td>
 
                               <span
@@ -738,17 +1106,22 @@ export default function DocumentsPage() {
 
                             </td>
 
+                            {/* FECHA */}
+
                             <td>
 
                               <span className="document-date">
+
                                 {formatDate(
                                   document.creado_en
                                 )}
+
                               </span>
 
                             </td>
 
                           </tr>
+
                         );
                       }
                     )}
@@ -758,6 +1131,7 @@ export default function DocumentsPage() {
                 </table>
 
               </div>
+
             )}
 
           </section>

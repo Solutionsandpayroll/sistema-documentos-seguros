@@ -1,4 +1,5 @@
 "use client";
+
 import "./dashboard.css";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -20,59 +21,127 @@ export default function DashboardPage() {
 
   const [recentDocuments, setRecentDocuments] = useState([]);
   const [loadingDocuments, setLoadingDocuments] = useState(true);
+  const [documentsError, setDocumentsError] = useState("");
 
   // ============================================================
   // CARGAR USUARIO DE LA SESIÓN
   // ============================================================
 
   useEffect(() => {
-    try {
-      const savedUser = localStorage.getItem(
-        "docuportal_current_user"
-      );
+    const loadCurrentUser = async () => {
+      try {
+        const response = await fetch(
+          "/api/usuarios/sesion",
+          {
+            method: "GET",
+            cache: "no-store",
+          }
+        );
 
-      if (savedUser) {
-        const user = JSON.parse(savedUser);
+        if (!response.ok) {
+          console.error(
+            "No fue posible obtener la sesión."
+          );
+          return;
+        }
+
+        const data = await response.json();
+
+        if (!data.success || !data.usuario) {
+          console.error(
+            "La sesión no contiene un usuario válido."
+          );
+          return;
+        }
+
+        const user = data.usuario;
 
         setCurrentUser({
-          name: user.name || user.nombre || "Administrador",
-          role: user.role || user.rol || "Administrador",
+          name:
+            user.nombre ||
+            user.name ||
+            "Administrador",
+
+          role:
+            user.rol ||
+            user.role ||
+            "Administrador",
         });
+      } catch (error) {
+        console.error(
+          "Error cargando el usuario actual:",
+          error
+        );
       }
-    } catch (error) {
-      console.error(
-        "Error cargando el usuario actual:",
-        error
-      );
-    }
+    };
+
+    loadCurrentUser();
   }, []);
 
   // ============================================================
-  // CARGAR DOCUMENTOS DESDE NEON
+  // CARGAR DOCUMENTOS REALES DESDE NEON
   // ============================================================
 
   useEffect(() => {
     const loadDocuments = async () => {
       try {
         setLoadingDocuments(true);
+        setDocumentsError("");
 
-        const response = await fetch("/api/documentos", {
-          cache: "no-store",
-        });
+        const response = await fetch(
+          "/api/documentos",
+          {
+            method: "GET",
+            cache: "no-store",
+          }
+        );
 
         if (!response.ok) {
           throw new Error(
-            "Error consultando los documentos"
+            "No fue posible consultar los documentos."
           );
         }
 
         const data = await response.json();
 
+        // ======================================================
+        // LA API PUEDE DEVOLVER DIRECTAMENTE UN ARRAY
+        // O UN OBJETO CON documents/documentos
+        // ======================================================
+
+        let documents = [];
+
         if (Array.isArray(data)) {
-          setRecentDocuments(data);
-        } else {
-          setRecentDocuments([]);
+          documents = data;
+        } else if (Array.isArray(data.documentos)) {
+          documents = data.documentos;
+        } else if (Array.isArray(data.documents)) {
+          documents = data.documents;
         }
+
+        // ======================================================
+        // ORDENAR DEL MÁS RECIENTE AL MÁS ANTIGUO
+        // ======================================================
+
+        documents.sort((a, b) => {
+          const dateA = new Date(
+            a.creado_en ||
+              a.created_at ||
+              a.fecha ||
+              0
+          ).getTime();
+
+          const dateB = new Date(
+            b.creado_en ||
+              b.created_at ||
+              b.fecha ||
+              0
+          ).getTime();
+
+          return dateB - dateA;
+        });
+
+        setRecentDocuments(documents);
       } catch (error) {
         console.error(
           "Error cargando documentos:",
@@ -80,6 +149,10 @@ export default function DashboardPage() {
         );
 
         setRecentDocuments([]);
+
+        setDocumentsError(
+          "No fue posible cargar los documentos."
+        );
       } finally {
         setLoadingDocuments(false);
       }
@@ -120,7 +193,7 @@ export default function DashboardPage() {
 
   const getStatusClass = (status) => {
     const normalizedStatus =
-      status?.toLowerCase();
+      status?.trim().toLowerCase();
 
     if (normalizedStatus === "enviado") {
       return "blue";
@@ -163,7 +236,13 @@ export default function DashboardPage() {
     }
 
     try {
-      return new Date(date).toLocaleDateString(
+      const parsedDate = new Date(date);
+
+      if (isNaN(parsedDate.getTime())) {
+        return "";
+      }
+
+      return parsedDate.toLocaleDateString(
         "es-CO",
         {
           day: "2-digit",
@@ -177,25 +256,43 @@ export default function DashboardPage() {
   };
 
   // ============================================================
-  // ESTADÍSTICAS
+  // OBTENER ESTADO NORMALIZADO
+  // ============================================================
+
+  const getDocumentStatus = (document) => {
+    return (
+      document.estado ||
+      document.status ||
+      "Pendiente"
+    );
+  };
+
+  // ============================================================
+  // ESTADÍSTICAS REALES
   // ============================================================
 
   const totalDocuments =
     recentDocuments.length;
 
   const sentDocuments =
-    recentDocuments.filter(
-      (document) =>
-        document.estado?.toLowerCase() ===
-        "enviado"
-    ).length;
+    recentDocuments.filter((document) => {
+      const status =
+        getDocumentStatus(document)
+          .trim()
+          .toLowerCase();
+
+      return status === "enviado";
+    }).length;
 
   const receivedDocuments =
-    recentDocuments.filter(
-      (document) =>
-        document.estado?.toLowerCase() ===
-        "recibido"
-    ).length;
+    recentDocuments.filter((document) => {
+      const status =
+        getDocumentStatus(document)
+          .trim()
+          .toLowerCase();
+
+      return status === "recibido";
+    }).length;
 
   // ============================================================
   // DOCUMENTOS RECIENTES
@@ -206,6 +303,20 @@ export default function DashboardPage() {
 
   const userInitials =
     getInitials(currentUser.name);
+
+  // ============================================================
+  // VERIFICAR SI ES ADMINISTRADOR
+  // ============================================================
+
+  const isAdministrator =
+    currentUser.role
+      ?.trim()
+      .toLowerCase() ===
+    "administrador";
+
+  // ============================================================
+  // RENDER
+  // ============================================================
 
   return (
     <div className="dashboard-layout">
@@ -225,7 +336,9 @@ export default function DashboardPage() {
           </div>
 
           <div>
-            <h2>DocuPortal</h2>
+            <h2>
+              DocuPortal
+            </h2>
 
             <span>
               Portal documental
@@ -338,9 +451,26 @@ export default function DashboardPage() {
             </span>
           </Link>
 
+          {/* MI CUENTA */}
+
+          {isAdministrator && (
+            <Link
+              href="/dashboard/configuracion"
+              className="navigation-item"
+            >
+              <span className="navigation-icon">
+                ◉
+              </span>
+
+              <span>
+                Mi cuenta
+              </span>
+            </Link>
+          )}
+
           {/* ADMINISTRACIÓN */}
 
-          {currentUser.role === "Administrador" && (
+          {isAdministrator && (
             <Link
               href="/admin"
               className="navigation-item"
@@ -383,14 +513,14 @@ export default function DashboardPage() {
 
           {/* CERRAR SESIÓN */}
 
-          <LogoutButton className="logout-link">
-
+          <LogoutButton
+            className="logout-link"
+          >
             <span>
               ↪
             </span>
 
             Cerrar sesión
-
           </LogoutButton>
 
         </div>
@@ -461,31 +591,22 @@ export default function DashboardPage() {
 
               <h2>
                 Hola,{" "}
-                {currentUser.name.split(" ")[0]} 👋
+                {
+                  currentUser.name.split(
+                    " "
+                  )[0]
+                } 👋
               </h2>
 
               <p>
-                Bienvenida al portal documental.
-                Desde aquí puedes consultar los
-                documentos del sistema, revisar
-                el historial y realizar seguimiento
-                de la actividad.
+                Bienvenida al portal
+                documental. Desde aquí
+                puedes consultar los
+                documentos del sistema,
+                revisar el historial y
+                realizar seguimiento de
+                la actividad.
               </p>
-
-            </div>
-
-            <div className="welcome-action">
-
-              <Link
-                href="/dashboard/new"
-                className="primary-button"
-              >
-                <span>
-                  +
-                </span>
-
-                Nuevo documento
-              </Link>
 
             </div>
 
@@ -664,6 +785,26 @@ export default function DashboardPage() {
 
                   </div>
 
+                ) : documentsError ? (
+
+                  <div className="recent-document">
+
+                    <div className="recent-document-info">
+
+                      <strong>
+                        No se pudieron cargar
+                        los documentos
+                      </strong>
+
+                      <span>
+                        Intenta actualizar la
+                        página nuevamente.
+                      </span>
+
+                    </div>
+
+                  </div>
+
                 ) : documentsToShow.length === 0 ? (
 
                   <div className="recent-document">
@@ -671,11 +812,13 @@ export default function DashboardPage() {
                     <div className="recent-document-info">
 
                       <strong>
-                        No hay documentos registrados
+                        No hay documentos
+                        registrados
                       </strong>
 
                       <span>
-                        Los documentos aparecerán aquí
+                        Los documentos
+                        aparecerán aquí
                         cuando se registren.
                       </span>
 
@@ -688,10 +831,29 @@ export default function DashboardPage() {
                   documentsToShow.map(
                     (document) => {
 
+                      const fileName =
+                        document.nombre_archivo ||
+                        document.nombre ||
+                        document.archivo_nombre ||
+                        "Documento";
+
                       const fileType =
-                        getFileType(
-                          document.nombre_archivo
+                        getFileType(fileName);
+
+                      const status =
+                        getDocumentStatus(
+                          document
                         );
+
+                      const company =
+                        document.empresa ||
+                        document.nombre_empresa ||
+                        "Sin empresa";
+
+                      const documentDate =
+                        document.creado_en ||
+                        document.created_at ||
+                        document.fecha;
 
                       return (
                         <div
@@ -712,21 +874,23 @@ export default function DashboardPage() {
                           <div className="recent-document-info">
 
                             <strong>
-                              {document.nombre_archivo}
+                              {fileName}
                             </strong>
 
                             <span>
                               DOC-
                               {String(
                                 document.id
-                              ).padStart(3, "0")}
-                              {" · "}
-                              {formatDate(
-                                document.creado_en
+                              ).padStart(
+                                3,
+                                "0"
                               )}
                               {" · "}
-                              {document.empresa ||
-                                "Sin empresa"}
+                              {formatDate(
+                                documentDate
+                              )}
+                              {" · "}
+                              {company}
                             </span>
 
                           </div>
@@ -735,14 +899,13 @@ export default function DashboardPage() {
 
                           <span
                             className={`status-badge ${getStatusClass(
-                              document.estado
+                              status
                             )}`}
                           >
 
                             <span className="status-dot"></span>
 
-                            {document.estado ||
-                              "Pendiente"}
+                            {status}
 
                           </span>
 
@@ -799,7 +962,10 @@ export default function DashboardPage() {
                     </strong>
 
                     <span>
-                      {totalDocuments} documentos
+                      {totalDocuments}{" "}
+                      {totalDocuments === 1
+                        ? "documento"
+                        : "documentos"}{" "}
                       en el sistema
                     </span>
 
@@ -820,8 +986,10 @@ export default function DashboardPage() {
                     </strong>
 
                     <span>
-                      {sentDocuments} documentos
-                      enviados
+                      {sentDocuments}{" "}
+                      {sentDocuments === 1
+                        ? "documento enviado"
+                        : "documentos enviados"}
                     </span>
 
                   </div>
@@ -841,7 +1009,8 @@ export default function DashboardPage() {
                     </strong>
 
                     <span>
-                      Consulta el historial del sistema
+                      Consulta el historial
+                      del sistema
                     </span>
 
                   </div>
@@ -883,35 +1052,6 @@ export default function DashboardPage() {
 
             <div className="quick-actions-grid">
 
-              {/* NUEVO DOCUMENTO */}
-
-              <Link
-                href="/dashboard/new"
-                className="quick-action"
-              >
-
-                <div className="quick-action-icon blue">
-                  +
-                </div>
-
-                <div>
-
-                  <strong>
-                    Nuevo documento
-                  </strong>
-
-                  <span>
-                    Cargar y enviar un documento
-                  </span>
-
-                </div>
-
-                <span className="quick-action-arrow">
-                  →
-                </span>
-
-              </Link>
-
               {/* CONSULTAR DOCUMENTOS */}
 
               <Link
@@ -930,7 +1070,8 @@ export default function DashboardPage() {
                   </strong>
 
                   <span>
-                    Ver los documentos del sistema
+                    Ver los documentos del
+                    sistema
                   </span>
 
                 </div>
@@ -959,7 +1100,8 @@ export default function DashboardPage() {
                   </strong>
 
                   <span>
-                    Revisar la actividad del sistema
+                    Revisar la actividad del
+                    sistema
                   </span>
 
                 </div>

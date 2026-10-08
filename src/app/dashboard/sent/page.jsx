@@ -1,19 +1,37 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import "../documents/documents.css";
+import {
+  useEffect,
+  useState,
+} from "react";
+
 import "./sent.css";
+import "../dashboard.css";
+
+import LogoutButton from "@/components/LogoutButton";
 
 export default function SentDocumentsPage() {
+  // ============================================================
+  // USUARIO ACTUAL
+  // ============================================================
+
   const [currentUser, setCurrentUser] = useState({
     name: "Administrador",
     role: "Administrador",
   });
 
+  // ============================================================
+  // DOCUMENTOS
+  // ============================================================
+
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+
+  // ============================================================
+  // CARGAR USUARIO
+  // ============================================================
 
   useEffect(() => {
     try {
@@ -29,6 +47,7 @@ export default function SentDocumentsPage() {
             user.name ||
             user.nombre ||
             "Administrador",
+
           role:
             user.role ||
             user.rol ||
@@ -36,13 +55,22 @@ export default function SentDocumentsPage() {
         });
       }
     } catch (error) {
-      console.error(error);
+      console.error(
+        "Error cargando usuario:",
+        error
+      );
     }
   }, []);
+
+  // ============================================================
+  // CARGAR DOCUMENTOS ENVIADOS
+  // ============================================================
 
   useEffect(() => {
     const loadDocuments = async () => {
       try {
+        setLoading(true);
+
         const response = await fetch(
           "/api/documentos",
           {
@@ -50,23 +78,33 @@ export default function SentDocumentsPage() {
           }
         );
 
-        const data =
-          await response.json();
+        if (!response.ok) {
+          throw new Error(
+            "Error consultando los documentos"
+          );
+        }
+
+        const data = await response.json();
 
         if (Array.isArray(data)) {
-          setDocuments(
-            data.filter(
-              (document) =>
-                document.estado?.toLowerCase() ===
-                "enviado"
-            )
+          const sentDocuments = data.filter(
+            (document) =>
+              document.estado
+                ?.toLowerCase() ===
+              "enviado"
           );
+
+          setDocuments(sentDocuments);
+        } else {
+          setDocuments([]);
         }
       } catch (error) {
         console.error(
           "Error cargando enviados:",
           error
         );
+
+        setDocuments([]);
       } finally {
         setLoading(false);
       }
@@ -75,8 +113,14 @@ export default function SentDocumentsPage() {
     loadDocuments();
   }, []);
 
+  // ============================================================
+  // INICIALES
+  // ============================================================
+
   const getInitials = (name) => {
-    if (!name) return "AD";
+    if (!name) {
+      return "AD";
+    }
 
     const words = name
       .trim()
@@ -95,8 +139,14 @@ export default function SentDocumentsPage() {
     ).toUpperCase();
   };
 
+  // ============================================================
+  // TIPO DE ARCHIVO
+  // ============================================================
+
   const getFileType = (name) => {
-    if (!name) return "FILE";
+    if (!name) {
+      return "FILE";
+    }
 
     const parts = name.split(".");
 
@@ -107,14 +157,19 @@ export default function SentDocumentsPage() {
       : "FILE";
   };
 
-  const getFileClass = (name) => {
-    const extension =
-      name
-        ?.split(".")
-        .pop()
-        ?.toLowerCase();
+  // ============================================================
+  // CLASE DEL ARCHIVO
+  // ============================================================
 
-    if (extension === "pdf") return "pdf";
+  const getFileClass = (name) => {
+    const extension = name
+      ?.split(".")
+      .pop()
+      ?.toLowerCase();
+
+    if (extension === "pdf") {
+      return "pdf";
+    }
 
     if (
       extension === "xlsx" ||
@@ -130,58 +185,107 @@ export default function SentDocumentsPage() {
       return "word";
     }
 
+    if (
+      extension === "jpg" ||
+      extension === "jpeg" ||
+      extension === "png"
+    ) {
+      return "image";
+    }
+
     return "file";
   };
 
-  const formatDate = (date) => {
-    if (!date) return "";
+  // ============================================================
+  // FECHA
+  // ============================================================
 
-    return new Date(
-      date
-    ).toLocaleDateString("es-CO", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
+  const formatDate = (date) => {
+    if (!date) {
+      return "";
+    }
+
+    try {
+      return new Date(
+        date
+      ).toLocaleDateString(
+        "es-CO",
+        {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        }
+      );
+    } catch {
+      return "";
+    }
   };
 
-  const filteredDocuments =
-    documents.filter((document) => {
-      const text =
-        search.toLowerCase();
+  // ============================================================
+  // DOCUMENTOS FILTRADOS
+  // ============================================================
 
-      return (
-        document.nombre_archivo
-          ?.toLowerCase()
-          .includes(text) ||
-        document.empresa
-          ?.toLowerCase()
-          .includes(text) ||
-        document.destinatario
-          ?.toLowerCase()
-          .includes(text) ||
-        document.correo
-          ?.toLowerCase()
-          .includes(text)
-      );
-    });
+  const filteredDocuments =
+    documents.filter(
+      (document) => {
+        const text =
+          search.toLowerCase();
+
+        return (
+          document.nombre_archivo
+            ?.toLowerCase()
+            .includes(text) ||
+
+          document.empresa
+            ?.toLowerCase()
+            .includes(text) ||
+
+          document.destinatario
+            ?.toLowerCase()
+            .includes(text) ||
+
+          document.correo
+            ?.toLowerCase()
+            .includes(text)
+        );
+      }
+    );
+
+  // ============================================================
+  // INICIALES DEL USUARIO
+  // ============================================================
 
   const userInitials =
-    getInitials(currentUser.name);
+    getInitials(
+      currentUser.name
+    );
+
+  // ============================================================
+  // RENDER
+  // ============================================================
 
   return (
-    <div className="documents-layout">
+    <div className="dashboard-layout">
 
-      <aside className="documents-sidebar">
+      {/* ======================================================
+          SIDEBAR
+      ====================================================== */}
 
-        <div className="documents-sidebar-brand">
+      <aside className="sidebar">
 
-          <div className="documents-brand-logo">
+        {/* LOGO */}
+
+        <div className="sidebar-brand">
+
+          <div className="brand-logo">
             D
           </div>
 
           <div>
-            <h2>DocuPortal</h2>
+            <h2>
+              DocuPortal
+            </h2>
+
             <span>
               Portal documental
             </span>
@@ -189,79 +293,159 @@ export default function SentDocumentsPage() {
 
         </div>
 
-        <nav className="documents-sidebar-navigation">
+        {/* NAVEGACIÓN */}
 
-          <div className="documents-navigation-section">
+        <nav className="sidebar-navigation">
+
+          <div className="navigation-section">
             PRINCIPAL
           </div>
 
+          {/* DASHBOARD */}
+
           <Link
             href="/dashboard"
-            className="documents-navigation-item"
+            className="navigation-item"
           >
-            ⌂ <span>Dashboard</span>
+            <span className="navigation-icon">
+              ⌂
+            </span>
+
+            <span>
+              Dashboard
+            </span>
           </Link>
+
+          {/* DOCUMENTOS */}
 
           <Link
             href="/dashboard/documents"
-            className="documents-navigation-item"
+            className="navigation-item"
           >
-            ▤ <span>Documentos</span>
+            <span className="navigation-icon">
+              ▤
+            </span>
+
+            <span>
+              Documentos
+            </span>
           </Link>
+
+          {/* ENVIADOS */}
 
           <Link
             href="/dashboard/sent"
-            className="documents-navigation-item active"
+            className="navigation-item active"
           >
-            ↗ <span>Enviados</span>
+            <span className="navigation-icon">
+              ↗
+            </span>
+
+            <span>
+              Enviados
+            </span>
           </Link>
+
+          {/* RECIBIDOS */}
 
           <Link
             href="/dashboard/received"
-            className="documents-navigation-item"
+            className="navigation-item"
           >
-            ↙ <span>Recibidos</span>
+            <span className="navigation-icon">
+              ↙
+            </span>
+
+            <span>
+              Recibidos
+            </span>
           </Link>
+
+          {/* TICKETS */}
 
           <Link
             href="/dashboard/tickets"
-            className="documents-navigation-item"
+            className="navigation-item"
           >
-            □ <span>Tickets</span>
+            <span className="navigation-icon">
+              □
+            </span>
+
+            <span>
+              Tickets
+            </span>
           </Link>
 
-          <div className="documents-navigation-section documents-second-section">
+          {/* GESTIÓN */}
+
+          <div className="navigation-section second-section">
             GESTIÓN
           </div>
 
+          {/* HISTORIAL */}
+
           <Link
             href="/dashboard/history"
-            className="documents-navigation-item"
+            className="navigation-item"
           >
-            ◷ <span>Historial</span>
+            <span className="navigation-icon">
+              ◷
+            </span>
+
+            <span>
+              Historial
+            </span>
           </Link>
+
+          {/* MI CUENTA */}
+
+          {currentUser.role ===
+            "Administrador" && (
+            <Link
+              href="/dashboard/configuracion"
+              className="navigation-item"
+            >
+              <span className="navigation-icon">
+                ◉
+              </span>
+
+              <span>
+                Mi cuenta
+              </span>
+            </Link>
+          )}
+
+          {/* ADMINISTRACIÓN */}
 
           {currentUser.role ===
             "Administrador" && (
             <Link
               href="/admin"
-              className="documents-navigation-item"
+              className="navigation-item"
             >
-              ⚙ <span>Administración</span>
+              <span className="navigation-icon">
+                ⚙
+              </span>
+
+              <span>
+                Administración
+              </span>
             </Link>
           )}
 
         </nav>
 
-        <div className="documents-sidebar-footer">
+        {/* USUARIO */}
 
-          <div className="documents-sidebar-user">
+        <div className="sidebar-footer">
 
-            <div className="documents-user-avatar">
+          <div className="sidebar-user">
+
+            <div className="user-avatar">
               {userInitials}
             </div>
 
-            <div className="documents-sidebar-user-data">
+            <div className="sidebar-user-data">
 
               <strong>
                 {currentUser.name}
@@ -275,29 +459,33 @@ export default function SentDocumentsPage() {
 
           </div>
 
-          <button
-            className="documents-logout-button"
-            onClick={() => {
-              localStorage.removeItem(
-                "docuportal_current_user"
-              );
+          {/* CERRAR SESIÓN */}
 
-              window.location.href =
-                "/login";
-            }}
+          <LogoutButton
+            className="logout-link"
           >
-            ↪ Cerrar sesión
-          </button>
+            <span>
+              ↪
+            </span>
+
+            Cerrar sesión
+          </LogoutButton>
 
         </div>
 
       </aside>
 
-      <main className="documents-main">
+      {/* ======================================================
+          CONTENIDO PRINCIPAL
+      ====================================================== */}
 
-        <header className="documents-top-header">
+      <main className="dashboard-main">
 
-          <div>
+        {/* HEADER */}
+
+        <header className="dashboard-header">
+
+          <div className="header-title">
 
             <span>
               PORTAL DOCUMENTAL
@@ -309,21 +497,25 @@ export default function SentDocumentsPage() {
 
           </div>
 
-          <div className="documents-header-user">
+          <div className="header-right">
 
-            <div className="documents-header-avatar">
-              {userInitials}
-            </div>
+            <div className="header-user">
 
-            <div>
+              <div className="header-user-avatar">
+                {userInitials}
+              </div>
 
-              <strong>
-                {currentUser.name}
-              </strong>
+              <div className="header-user-data">
 
-              <span>
-                {currentUser.role}
-              </span>
+                <strong>
+                  {currentUser.name}
+                </strong>
+
+                <span>
+                  {currentUser.role}
+                </span>
+
+              </div>
 
             </div>
 
@@ -331,7 +523,15 @@ export default function SentDocumentsPage() {
 
         </header>
 
-        <div className="documents-page-content">
+        {/* ====================================================
+            CONTENIDO
+        ==================================================== */}
+
+        <div className="dashboard-content">
+
+          {/* ==================================================
+              INTRODUCCIÓN
+          ================================================== */}
 
           <section className="documents-intro">
 
@@ -353,14 +553,55 @@ export default function SentDocumentsPage() {
 
             </div>
 
-            <Link
-              href="/dashboard/new"
-              className="new-document-button"
-            >
-              + Nuevo documento
-            </Link>
+          </section>
+
+          {/* ==================================================
+              ESTADÍSTICAS
+          ================================================== */}
+
+          <section className="document-stats">
+
+            <div className="document-stat">
+
+              <span className="document-stat-label">
+                Total enviados
+              </span>
+
+              <strong>
+                {documents.length}
+              </strong>
+
+            </div>
+
+            <div className="document-stat">
+
+              <span className="document-stat-label">
+                Resultados actuales
+              </span>
+
+              <strong>
+                {filteredDocuments.length}
+              </strong>
+
+            </div>
+
+            <div className="document-stat">
+
+              <span className="document-stat-label">
+                Estado
+              </span>
+
+              <strong>
+                Enviados
+              </strong>
+
+            </div>
 
           </section>
+
+          {/* ==================================================
+              BÚSQUEDA
+          ================================================== */}
 
           <section className="documents-filters">
 
@@ -385,6 +626,10 @@ export default function SentDocumentsPage() {
 
           </section>
 
+          {/* ==================================================
+              TABLA
+          ================================================== */}
+
           <section className="documents-table-card">
 
             <div className="table-header">
@@ -392,7 +637,7 @@ export default function SentDocumentsPage() {
               <div>
 
                 <span>
-                  LISTADO
+                  LISTADO GENERAL
                 </span>
 
                 <h2>
@@ -402,17 +647,23 @@ export default function SentDocumentsPage() {
               </div>
 
               <span className="results-count">
+
                 {filteredDocuments.length}{" "}
-                documento
+
+                resultado
                 {filteredDocuments.length !==
                 1
                   ? "s"
                   : ""}
+
               </span>
 
             </div>
 
+            {/* CARGANDO */}
+
             {loading ? (
+
               <div className="documents-empty">
 
                 <div className="loading-icon">
@@ -424,8 +675,12 @@ export default function SentDocumentsPage() {
                 </h3>
 
               </div>
+
             ) : filteredDocuments.length ===
               0 ? (
+
+              /* SIN DOCUMENTOS */
+
               <div className="documents-empty">
 
                 <div className="empty-icon">
@@ -442,7 +697,11 @@ export default function SentDocumentsPage() {
                 </p>
 
               </div>
+
             ) : (
+
+              /* TABLA */
+
               <div className="table-wrapper">
 
                 <table className="documents-table">
@@ -486,6 +745,8 @@ export default function SentDocumentsPage() {
                           }
                         >
 
+                          {/* DOCUMENTO */}
+
                           <td>
 
                             <div className="document-cell">
@@ -495,9 +756,11 @@ export default function SentDocumentsPage() {
                                   document.nombre_archivo
                                 )}`}
                               >
+
                                 {getFileType(
                                   document.nombre_archivo
                                 )}
+
                               </div>
 
                               <div>
@@ -524,12 +787,20 @@ export default function SentDocumentsPage() {
 
                           </td>
 
+                          {/* EMPRESA */}
+
                           <td>
+
                             <span className="company-name">
+
                               {document.empresa ||
                                 "Sin empresa"}
+
                             </span>
+
                           </td>
+
+                          {/* DESTINATARIO */}
 
                           <td>
 
@@ -544,6 +815,8 @@ export default function SentDocumentsPage() {
 
                           </td>
 
+                          {/* CORREO */}
+
                           <td>
 
                             <div className="person-cell">
@@ -557,12 +830,16 @@ export default function SentDocumentsPage() {
 
                           </td>
 
+                          {/* FECHA */}
+
                           <td>
 
                             <span className="document-date">
+
                               {formatDate(
                                 document.creado_en
                               )}
+
                             </span>
 
                           </td>
@@ -577,6 +854,7 @@ export default function SentDocumentsPage() {
                 </table>
 
               </div>
+
             )}
 
           </section>

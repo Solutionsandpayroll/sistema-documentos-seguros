@@ -1,82 +1,15 @@
 "use client";
 
+import "../dashboard/dashboard.css";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import LogoutButton from "../../components/LogoutButton";
-
-const ALLOWED_ROLES = [
-  "Administrador",
-  "Empleado",
-  "Usuario",
-];
-
-const DEMO_USERS = [
-  {
-    id: "USR-001",
-    name: "Greylin Martínez",
-    email: "greylin@docuportal.com",
-    role: "Administrador",
-    department: "Administración",
-    status: "Activo",
-    lastAccess: "06 Oct 2026, 09:30 a. m.",
-  },
-  {
-    id: "USR-002",
-    name: "Laura Rodríguez",
-    email: "laura@docuportal.com",
-    role: "Usuario",
-    department: "Recursos Humanos",
-    status: "Activo",
-    lastAccess: "06 Oct 2026, 08:45 a. m.",
-  },
-  {
-    id: "USR-003",
-    name: "Carlos Gómez",
-    email: "carlos@docuportal.com",
-    role: "Usuario",
-    department: "Contabilidad",
-    status: "Activo",
-    lastAccess: "05 Oct 2026, 04:20 p. m.",
-  },
-  {
-    id: "USR-004",
-    name: "Mariana López",
-    email: "mariana@docuportal.com",
-    role: "Empleado",
-    department: "Gestión Documental",
-    status: "Inactivo",
-    lastAccess: "30 Sep 2026, 02:15 p. m.",
-  },
-];
+import LogoutButton from "@/components/LogoutButton";
 
 const USER_FILTERS = [
   "Todos",
   "Activo",
   "Inactivo",
 ];
-
-function normalizeUserRole(role) {
-  if (role === "Supervisor") {
-    return "Empleado";
-  }
-
-  if (ALLOWED_ROLES.includes(role)) {
-    return role;
-  }
-
-  return "Usuario";
-}
-
-function normalizeUser(user) {
-  if (!user || !user.id) {
-    return null;
-  }
-
-  return {
-    ...user,
-    role: normalizeUserRole(user.role),
-  };
-}
 
 function getInitials(name = "") {
   return (
@@ -96,236 +29,432 @@ function formatLastAccess(lastAccess) {
     return "Nunca";
   }
 
-  return lastAccess;
+  try {
+    return new Date(lastAccess).toLocaleString(
+      "es-CO",
+      {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }
+    );
+  } catch {
+    return lastAccess;
+  }
 }
 
-function mergeUsers(savedUsers) {
-  const usersById = new Map();
-
-  DEMO_USERS.forEach((user) => {
-    usersById.set(user.id, user);
-  });
-
-  if (Array.isArray(savedUsers)) {
-    savedUsers.forEach((user) => {
-      const normalizedUser = normalizeUser(user);
-
-      if (!normalizedUser) {
-        return;
-      }
-
-      usersById.set(normalizedUser.id, {
-        ...usersById.get(normalizedUser.id),
-        ...normalizedUser,
-      });
-    });
+function formatDate(date) {
+  if (!date) {
+    return "";
   }
 
-  return Array.from(usersById.values());
+  try {
+    const parsedDate = new Date(date);
+
+    if (isNaN(parsedDate.getTime())) {
+      return "";
+    }
+
+    return parsedDate.toLocaleDateString(
+      "es-CO",
+      {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }
+    );
+  } catch {
+    return "";
+  }
+}
+
+function normalizeUser(user) {
+  if (!user) {
+    return null;
+  }
+
+  return {
+    id: user.id,
+    name:
+      user.nombre ||
+      user.name ||
+      "Usuario",
+
+    email:
+      user.correo ||
+      user.email ||
+      "",
+
+    role:
+      user.rol ||
+      user.role ||
+      "Usuario",
+
+    department:
+      user.departamento ||
+      user.department ||
+      "No definido",
+
+    status:
+      user.estado ||
+      user.status ||
+      "Activo",
+
+    lastAccess:
+      user.ultimo_acceso ||
+      user.last_access ||
+      user.lastAccess ||
+      null,
+
+    createdAt:
+      user.fecha_creacion ||
+      user.created_at ||
+      user.createdAt ||
+      null,
+
+    createdBy:
+      user.creado_por ||
+      user.created_by ||
+      user.createdBy ||
+      null,
+  };
 }
 
 export default function AdminPage() {
+  // ============================================================
+  // USUARIO ACTUAL
+  // ============================================================
+
   const [currentUser, setCurrentUser] = useState({
-    id: "USR-001",
-    name: "Greylin Martínez",
-    email: "greylin@docuportal.com",
+    id: "",
+    name: "Administrador",
+    email: "",
     role: "Administrador",
     department: "Administración",
   });
 
-  const [users, setUsers] = useState(DEMO_USERS);
+  // ============================================================
+  // USUARIOS
+  // ============================================================
+
+  const [users, setUsers] = useState([]);
+
+  // ============================================================
+  // ESTADOS
+  // ============================================================
 
   const [search, setSearch] = useState("");
-
   const [filter, setFilter] = useState("Todos");
-
   const [selectedUser, setSelectedUser] = useState(null);
 
-  const [documentsCount, setDocumentsCount] = useState(0);
+  const [documentsCount, setDocumentsCount] =
+    useState(0);
 
-  const [ticketsCount, setTicketsCount] = useState(0);
+  const [ticketsCount, setTicketsCount] =
+    useState(0);
 
-  const [historyCount, setHistoryCount] = useState(0);
+  const [historyCount, setHistoryCount] =
+    useState(0);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  // ============================================================
+  // CARGAR INFORMACIÓN REAL
+  // ============================================================
 
   useEffect(() => {
-    loadAdminData();
-  }, []);
+    const loadAdminData = async () => {
+      try {
+        setLoading(true);
 
-  const loadAdminData = () => {
-    try {
-      /* ============================================================
-         USUARIO ACTUAL
-      ============================================================ */
+        // ======================================================
+        // SESIÓN ACTUAL
+        // ======================================================
 
-      const currentUserData = localStorage.getItem(
-        "docuportal_current_user"
-      );
+        const sessionResponse = await fetch(
+          "/api/usuarios/sesion",
+          {
+            method: "GET",
+            cache: "no-store",
+          }
+        );
 
-      if (currentUserData) {
-        try {
-          const parsedCurrentUser =
-            JSON.parse(currentUserData);
+        if (sessionResponse.ok) {
+          const sessionData =
+            await sessionResponse.json();
 
-          if (parsedCurrentUser) {
+          if (
+            sessionData.success &&
+            sessionData.usuario
+          ) {
+            const usuario =
+              sessionData.usuario;
+
             setCurrentUser({
-              id:
-                parsedCurrentUser.id ||
-                "USR-001",
-
+              id: usuario.id || "",
               name:
-                parsedCurrentUser.name ||
-                "Greylin Martínez",
-
+                usuario.nombre ||
+                "Administrador",
               email:
-                parsedCurrentUser.email ||
-                "greylin@docuportal.com",
-
+                usuario.correo || "",
               role:
-                normalizeUserRole(
-                  parsedCurrentUser.role
-                ),
-
+                usuario.rol ||
+                "Administrador",
               department:
-                parsedCurrentUser.department ||
+                usuario.departamento ||
                 "Administración",
             });
           }
+        }
+
+        // ======================================================
+        // USUARIOS
+        // ======================================================
+
+        try {
+          const usersResponse =
+            await fetch(
+              "/api/usuarios",
+              {
+                method: "GET",
+                cache: "no-store",
+              }
+            );
+
+          if (usersResponse.ok) {
+            const usersData =
+              await usersResponse.json();
+
+            let usuarios = [];
+
+            if (
+              Array.isArray(
+                usersData
+              )
+            ) {
+              usuarios =
+                usersData;
+            } else if (
+              Array.isArray(
+                usersData.usuarios
+              )
+            ) {
+              usuarios =
+                usersData.usuarios;
+            } else if (
+              Array.isArray(
+                usersData.users
+              )
+            ) {
+              usuarios =
+                usersData.users;
+            }
+
+            setUsers(
+              usuarios
+                .map(
+                  (user) =>
+                    normalizeUser(user)
+                )
+                .filter(Boolean)
+            );
+          }
         } catch (error) {
           console.error(
-            "Error leyendo usuario actual:",
+            "Error cargando usuarios:",
+            error
+          );
+
+          setUsers([]);
+        }
+
+        // ======================================================
+        // DOCUMENTOS
+        // ======================================================
+
+        try {
+          const documentsResponse =
+            await fetch(
+              "/api/documentos",
+              {
+                method: "GET",
+                cache: "no-store",
+              }
+            );
+
+          if (
+            documentsResponse.ok
+          ) {
+            const documentsData =
+              await documentsResponse.json();
+
+            if (
+              Array.isArray(
+                documentsData
+              )
+            ) {
+              setDocumentsCount(
+                documentsData.length
+              );
+            } else if (
+              Array.isArray(
+                documentsData.documentos
+              )
+            ) {
+              setDocumentsCount(
+                documentsData.documentos.length
+              );
+            } else if (
+              Array.isArray(
+                documentsData.documents
+              )
+            ) {
+              setDocumentsCount(
+                documentsData.documents.length
+              );
+            } else if (
+              typeof documentsData.total ===
+              "number"
+            ) {
+              setDocumentsCount(
+                documentsData.total
+              );
+            }
+          }
+        } catch (error) {
+          console.error(
+            "Error cargando documentos:",
             error
           );
         }
-      }
 
-      /* ============================================================
-         USUARIOS
-      ============================================================ */
+        // ======================================================
+        // TICKETS
+        // ======================================================
 
-      let savedUsers = [];
+        try {
+          const ticketsResponse =
+            await fetch(
+              "/api/tickets",
+              {
+                method: "GET",
+                cache: "no-store",
+              }
+            );
 
-      try {
-        savedUsers = JSON.parse(
-          localStorage.getItem(
-            "docuportal_users"
-          ) || "[]"
-        );
+          if (
+            ticketsResponse.ok
+          ) {
+            const ticketsData =
+              await ticketsResponse.json();
+
+            if (
+              Array.isArray(
+                ticketsData
+              )
+            ) {
+              setTicketsCount(
+                ticketsData.length
+              );
+            } else if (
+              Array.isArray(
+                ticketsData.tickets
+              )
+            ) {
+              setTicketsCount(
+                ticketsData.tickets.length
+              );
+            } else if (
+              typeof ticketsData.total ===
+              "number"
+            ) {
+              setTicketsCount(
+                ticketsData.total
+              );
+            }
+          }
+        } catch (error) {
+          console.error(
+            "Error cargando tickets:",
+            error
+          );
+        }
+
+        // ======================================================
+        // HISTORIAL
+        // ======================================================
+
+        try {
+          const historyResponse =
+            await fetch(
+              "/api/historial",
+              {
+                method: "GET",
+                cache: "no-store",
+              }
+            );
+
+          if (
+            historyResponse.ok
+          ) {
+            const historyData =
+              await historyResponse.json();
+
+            if (
+              Array.isArray(
+                historyData
+              )
+            ) {
+              setHistoryCount(
+                historyData.length
+              );
+            } else if (
+              Array.isArray(
+                historyData.historial
+              )
+            ) {
+              setHistoryCount(
+                historyData.historial.length
+              );
+            } else if (
+              Array.isArray(
+                historyData.history
+              )
+            ) {
+              setHistoryCount(
+                historyData.history.length
+              );
+            } else if (
+              typeof historyData.total ===
+              "number"
+            ) {
+              setHistoryCount(
+                historyData.total
+              );
+            }
+          }
+        } catch (error) {
+          console.error(
+            "Error cargando historial:",
+            error
+          );
+        }
       } catch (error) {
         console.error(
-          "Error leyendo usuarios:",
+          "Error cargando información administrativa:",
           error
         );
+      } finally {
+        setLoading(false);
       }
+    };
 
-      const mergedUsers = mergeUsers(savedUsers);
+    loadAdminData();
+  }, []);
 
-      setUsers(mergedUsers);
-
-      /* ============================================================
-         ACTUALIZAR ROLES ANTIGUOS
-      ============================================================ */
-
-      if (Array.isArray(savedUsers)) {
-        const normalizedSavedUsers =
-          savedUsers
-            .map((user) =>
-              normalizeUser(user)
-            )
-            .filter(Boolean);
-
-        localStorage.setItem(
-          "docuportal_users",
-          JSON.stringify(
-            normalizedSavedUsers
-          )
-        );
-      }
-
-      /* ============================================================
-         DOCUMENTOS
-      ============================================================ */
-
-      let savedDocuments = [];
-
-      try {
-        savedDocuments = JSON.parse(
-          localStorage.getItem(
-            "docuportal_documents"
-          ) || "[]"
-        );
-      } catch (error) {
-        console.error(
-          "Error leyendo documentos:",
-          error
-        );
-      }
-
-      if (Array.isArray(savedDocuments)) {
-        setDocumentsCount(
-          savedDocuments.length
-        );
-      }
-
-      /* ============================================================
-         TICKETS
-      ============================================================ */
-
-      let savedTickets = [];
-
-      try {
-        savedTickets = JSON.parse(
-          localStorage.getItem(
-            "docuportal_tickets"
-          ) || "[]"
-        );
-      } catch (error) {
-        console.error(
-          "Error leyendo tickets:",
-          error
-        );
-      }
-
-      if (Array.isArray(savedTickets)) {
-        setTicketsCount(
-          savedTickets.length
-        );
-      }
-
-      /* ============================================================
-         HISTORIAL
-      ============================================================ */
-
-      let savedHistory = [];
-
-      try {
-        savedHistory = JSON.parse(
-          localStorage.getItem(
-            "docuportal_history"
-          ) || "[]"
-        );
-      } catch (error) {
-        console.error(
-          "Error leyendo historial:",
-          error
-        );
-      }
-
-      if (Array.isArray(savedHistory)) {
-        setHistoryCount(
-          savedHistory.length
-        );
-      }
-    } catch (error) {
-      console.error(
-        "Error al cargar información administrativa:",
-        error
-      );
-    }
-  };
-
-  /* ================================================================
-     FILTRADO
-  ================================================================ */
+  // ============================================================
+  // FILTRAR USUARIOS
+  // ============================================================
 
   const filteredUsers = useMemo(() => {
     const normalizedSearch =
@@ -347,33 +476,56 @@ export default function AdminPage() {
 
       const matchesFilter =
         filter === "Todos" ||
-        user.status === filter;
+        String(user.status)
+          .trim()
+          .toLowerCase() ===
+          filter.toLowerCase();
 
       return (
         matchesSearch &&
         matchesFilter
       );
     });
-  }, [users, search, filter]);
+  }, [
+    users,
+    search,
+    filter,
+  ]);
+
+  // ============================================================
+  // ESTADÍSTICAS
+  // ============================================================
 
   const activeUsers = users.filter(
-    (user) => user.status === "Activo"
+    (user) =>
+      String(user.status)
+        .trim()
+        .toLowerCase() ===
+      "activo"
   ).length;
 
   const inactiveUsers = users.filter(
-    (user) => user.status === "Inactivo"
+    (user) =>
+      String(user.status)
+        .trim()
+        .toLowerCase() ===
+      "inactivo"
   ).length;
 
   const userInitials = getInitials(
     currentUser.name
   );
 
+  // ============================================================
+  // RENDER
+  // ============================================================
+
   return (
     <div className="dashboard-layout">
 
-      {/* ============================================================
+      {/* ======================================================
           SIDEBAR
-      ============================================================ */}
+      ====================================================== */}
 
       <aside className="sidebar">
 
@@ -384,7 +536,9 @@ export default function AdminPage() {
           </div>
 
           <div>
-            <h2>DocuPortal</h2>
+            <h2>
+              DocuPortal
+            </h2>
 
             <span>
               Portal documental
@@ -407,7 +561,9 @@ export default function AdminPage() {
               ⌂
             </span>
 
-            <span>Dashboard</span>
+            <span>
+              Dashboard
+            </span>
           </Link>
 
           <Link
@@ -418,7 +574,9 @@ export default function AdminPage() {
               ▤
             </span>
 
-            <span>Documentos</span>
+            <span>
+              Documentos
+            </span>
           </Link>
 
           <Link
@@ -429,7 +587,9 @@ export default function AdminPage() {
               ↗
             </span>
 
-            <span>Enviados</span>
+            <span>
+              Enviados
+            </span>
           </Link>
 
           <Link
@@ -440,7 +600,9 @@ export default function AdminPage() {
               ↙
             </span>
 
-            <span>Recibidos</span>
+            <span>
+              Recibidos
+            </span>
           </Link>
 
           <Link
@@ -451,7 +613,9 @@ export default function AdminPage() {
               □
             </span>
 
-            <span>Tickets</span>
+            <span>
+              Tickets
+            </span>
           </Link>
 
           <div className="navigation-section second-section">
@@ -466,7 +630,22 @@ export default function AdminPage() {
               ◷
             </span>
 
-            <span>Historial</span>
+            <span>
+              Historial
+            </span>
+          </Link>
+
+          <Link
+            href="/dashboard/configuracion"
+            className="navigation-item"
+          >
+            <span className="navigation-icon">
+              ◉
+            </span>
+
+            <span>
+              Mi cuenta
+            </span>
           </Link>
 
           <Link
@@ -477,7 +656,9 @@ export default function AdminPage() {
               ⚙
             </span>
 
-            <span>Administración</span>
+            <span>
+              Administración
+            </span>
           </Link>
 
         </nav>
@@ -504,24 +685,23 @@ export default function AdminPage() {
 
           </div>
 
-          <LogoutButton className="logout-link">
-
+          <LogoutButton
+            className="logout-link"
+          >
             <span>
               ↪
             </span>
 
             Cerrar sesión
-
           </LogoutButton>
 
         </div>
 
       </aside>
 
-
-      {/* ============================================================
+      {/* ======================================================
           CONTENIDO PRINCIPAL
-      ============================================================ */}
+      ====================================================== */}
 
       <main className="dashboard-main">
 
@@ -530,7 +710,7 @@ export default function AdminPage() {
           <div className="header-title">
 
             <span>
-              CONFIGURACIÓN
+              PORTAL DOCUMENTAL
             </span>
 
             <h1>
@@ -565,255 +745,416 @@ export default function AdminPage() {
 
         </header>
 
-
         <div className="dashboard-content">
 
-          {/* ========================================================
-              INTRO
-          ======================================================== */}
+          {/* ==================================================
+              BIENVENIDA ADMINISTRATIVA
+          ================================================== */}
 
-          <section className="documents-intro">
+          <section className="welcome-card">
 
-            <div>
+            <div className="welcome-content">
 
-              <span className="documents-eyebrow">
+              <span className="welcome-eyebrow">
                 PANEL ADMINISTRATIVO
               </span>
 
               <h2>
-                Administración del portal
+                Hola,{" "}
+                {
+                  currentUser.name.split(
+                    " "
+                  )[0]
+                } 👋
               </h2>
 
               <p>
-                Gestiona usuarios, documentos,
-                tickets y la actividad general
-                de DocuPortal.
+                Desde aquí puedes
+                administrar los usuarios
+                y consultar la actividad
+                general del portal
+                documental.
               </p>
 
             </div>
 
-            <Link
-              href="/admin/users/new"
-              className="documents-new-button"
-            >
-              <span>+</span>
-              Nuevo usuario
-            </Link>
-
           </section>
 
+          {/* ==================================================
+              INDICADORES
+          ================================================== */}
 
-          {/* ========================================================
-              ESTADÍSTICAS
-          ======================================================== */}
+          <section className="stats-grid">
 
-          <section className="documents-stats">
+            <article className="stat-card">
 
-            <article className="documents-stat-card">
+              <div className="stat-card-top">
 
-              <div className="documents-stat-icon total-icon">
-                👤
-              </div>
+                <div className="stat-icon blue">
+                  👤
+                </div>
 
-              <div>
-
-                <span>
-                  Usuarios
+                <span className="stat-label">
+                  Usuarios registrados
                 </span>
 
+              </div>
+
+              <div className="stat-card-bottom">
+
                 <strong>
-                  {users.length}
+                  {loading
+                    ? "..."
+                    : users.length}
                 </strong>
+
+                <span className="stat-description">
+                  En el sistema
+                </span>
 
               </div>
 
             </article>
 
+            <article className="stat-card">
 
-            <article className="documents-stat-card">
+              <div className="stat-card-top">
 
-              <div className="documents-stat-icon sent-icon">
-                ✓
-              </div>
+                <div className="stat-icon green">
+                  ✓
+                </div>
 
-              <div>
-
-                <span>
+                <span className="stat-label">
                   Usuarios activos
                 </span>
 
+              </div>
+
+              <div className="stat-card-bottom">
+
                 <strong>
-                  {activeUsers}
+                  {loading
+                    ? "..."
+                    : activeUsers}
                 </strong>
+
+                <span className="stat-description">
+                  Actualmente activos
+                </span>
 
               </div>
 
             </article>
 
+            <article className="stat-card">
 
-            <article className="documents-stat-card">
+              <div className="stat-card-top">
 
-              <div className="documents-stat-icon received-icon">
-                ▤
-              </div>
-
-              <div>
-
-                <span>
-                  Documentos
-                </span>
-
-                <strong>
-                  {documentsCount}
-                </strong>
-
-              </div>
-
-            </article>
-
-
-            <article className="documents-stat-card">
-
-              <div className="documents-stat-icon pending-icon">
-                □
-              </div>
-
-              <div>
-
-                <span>
-                  Tickets
-                </span>
-
-                <strong>
-                  {ticketsCount}
-                </strong>
-
-              </div>
-
-            </article>
-
-          </section>
-
-
-          {/* ========================================================
-              ACCESOS RÁPIDOS
-          ======================================================== */}
-
-          <section className="content-card">
-
-            <div className="content-card-header">
-
-              <div>
-
-                <span>
-                  GESTIÓN
-                </span>
-
-                <h2>
-                  Accesos rápidos
-                </h2>
-
-              </div>
-
-            </div>
-
-
-            <div className="admin-quick-grid">
-
-              <Link
-                href="/dashboard/documents"
-                className="admin-quick-card"
-              >
-
-                <div className="admin-quick-icon documents">
+                <div className="stat-icon purple">
                   ▤
                 </div>
 
-                <div className="admin-quick-content">
+                <span className="stat-label">
+                  Documentos
+                </span>
 
-                  <strong>
-                    Documentos
-                  </strong>
+              </div>
 
-                  <span>
-                    Gestionar documentos
-                    del portal.
-                  </span>
+              <div className="stat-card-bottom">
 
-                </div>
+                <strong>
+                  {loading
+                    ? "..."
+                    : documentsCount}
+                </strong>
 
-                <div className="admin-quick-arrow">
-                  →
-                </div>
+                <span className="stat-description">
+                  Registrados
+                </span>
 
-              </Link>
+              </div>
 
+            </article>
 
-              <Link
-                href="/dashboard/tickets"
-                className="admin-quick-card"
-              >
+            <article className="stat-card">
 
-                <div className="admin-quick-icon tickets">
+              <div className="stat-card-top">
+
+                <div className="stat-icon orange">
                   □
                 </div>
 
-                <div className="admin-quick-content">
+                <span className="stat-label">
+                  Tickets
+                </span>
 
-                  <strong>
-                    Tickets
-                  </strong>
+              </div>
+
+              <div className="stat-card-bottom">
+
+                <strong>
+                  {loading
+                    ? "..."
+                    : ticketsCount}
+                </strong>
+
+                <span className="stat-description">
+                  Solicitudes registradas
+                </span>
+
+              </div>
+
+            </article>
+
+          </section>
+
+          {/* ==================================================
+              GESTIÓN RÁPIDA
+          ================================================== */}
+
+          <section className="dashboard-columns">
+
+            <div className="content-card">
+
+              <div className="content-card-header">
+
+                <div>
 
                   <span>
-                    Consultar solicitudes
-                    de soporte.
+                    GESTIÓN
                   </span>
 
+                  <h2>
+                    Administración rápida
+                  </h2>
+
                 </div>
 
-                <div className="admin-quick-arrow">
-                  →
-                </div>
+              </div>
 
-              </Link>
+              <div className="tickets-list">
 
+                <Link
+                  href="/admin/users/new"
+                  className="ticket-item"
+                  style={{
+                    textDecoration:
+                      "none",
+                    color: "inherit",
+                  }}
+                >
 
-              <Link
-                href="/dashboard/history"
-                className="admin-quick-card"
-              >
+                  <div className="ticket-icon">
+                    +
+                  </div>
 
-                <div className="admin-quick-icon history">
-                  ◷
-                </div>
+                  <div className="ticket-info">
 
-                <div className="admin-quick-content">
+                    <strong>
+                      Crear nuevo usuario
+                    </strong>
 
-                  <strong>
-                    Historial
-                  </strong>
+                    <span>
+                      Registrar una nueva
+                      cuenta de empleado.
+                    </span>
+
+                  </div>
 
                   <span>
-                    Revisar actividad
-                    del sistema.
+                    →
                   </span>
 
+                </Link>
+
+                <Link
+                  href="/dashboard/documents"
+                  className="ticket-item"
+                  style={{
+                    textDecoration:
+                      "none",
+                    color: "inherit",
+                  }}
+                >
+
+                  <div className="ticket-icon">
+                    ▤
+                  </div>
+
+                  <div className="ticket-info">
+
+                    <strong>
+                      Consultar documentos
+                    </strong>
+
+                    <span>
+                      Revisar los documentos
+                      registrados en el portal.
+                    </span>
+
+                  </div>
+
+                  <span>
+                    →
+                  </span>
+
+                </Link>
+
+                <Link
+                  href="/dashboard/tickets"
+                  className="ticket-item"
+                  style={{
+                    textDecoration:
+                      "none",
+                    color: "inherit",
+                  }}
+                >
+
+                  <div className="ticket-icon">
+                    □
+                  </div>
+
+                  <div className="ticket-info">
+
+                    <strong>
+                      Consultar tickets
+                    </strong>
+
+                    <span>
+                      Revisar las solicitudes
+                      de soporte.
+                    </span>
+
+                  </div>
+
+                  <span>
+                    →
+                  </span>
+
+                </Link>
+
+              </div>
+
+            </div>
+
+            <div className="content-card">
+
+              <div className="content-card-header">
+
+                <div>
+
+                  <span>
+                    RESUMEN
+                  </span>
+
+                  <h2>
+                    Estado del sistema
+                  </h2>
+
                 </div>
 
-                <div className="admin-quick-arrow">
-                  →
+                <Link
+                  href="/dashboard/history"
+                  className="view-all-link"
+                >
+                  Ver historial
+                </Link>
+
+              </div>
+
+              <div className="tickets-list">
+
+                <div className="ticket-item">
+
+                  <div className="ticket-icon">
+                    ✓
+                  </div>
+
+                  <div className="ticket-info">
+
+                    <strong>
+                      Usuarios activos
+                    </strong>
+
+                    <span>
+                      {activeUsers}{" "}
+                      {activeUsers === 1
+                        ? "usuario activo"
+                        : "usuarios activos"}
+                    </span>
+
+                  </div>
+
                 </div>
 
-              </Link>
+                <div className="ticket-item">
+
+                  <div className="ticket-icon">
+                    ▤
+                  </div>
+
+                  <div className="ticket-info">
+
+                    <strong>
+                      Documentos registrados
+                    </strong>
+
+                    <span>
+                      {documentsCount}{" "}
+                      {documentsCount === 1
+                        ? "documento"
+                        : "documentos"}{" "}
+                      en el sistema
+                    </span>
+
+                  </div>
+
+                </div>
+
+                <div className="ticket-item">
+
+                  <div className="ticket-icon">
+                    ◷
+                  </div>
+
+                  <div className="ticket-info">
+
+                    <strong>
+                      Actividad registrada
+                    </strong>
+
+                    <span>
+                      {historyCount}{" "}
+                      {historyCount === 1
+                        ? "actividad"
+                        : "actividades"}{" "}
+                      en el historial
+                    </span>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+              <div className="ticket-footer">
+
+                <Link
+                  href="/dashboard/history"
+                  className="secondary-button"
+                >
+                  Ver actividad
+                </Link>
+
+              </div>
 
             </div>
 
           </section>
 
-
-          {/* ========================================================
-              USUARIOS
-          ======================================================== */}
+          {/* ==================================================
+              GESTIÓN DE USUARIOS
+          ================================================== */}
 
           <section className="content-card documents-list-card">
 
@@ -831,16 +1172,14 @@ export default function AdminPage() {
 
               </div>
 
-              <span className="documents-total-label">
-                {filteredUsers.length} resultados
-              </span>
+              <Link
+                href="/admin/users/new"
+                className="view-all-link"
+              >
+                + Nuevo usuario
+              </Link>
 
             </div>
-
-
-            {/* ======================================================
-                BUSCADOR
-            ====================================================== */}
 
             <div className="documents-toolbar">
 
@@ -863,7 +1202,6 @@ export default function AdminPage() {
                 />
 
               </div>
-
 
               <select
                 className="documents-filter"
@@ -892,11 +1230,6 @@ export default function AdminPage() {
               </select>
 
             </div>
-
-
-            {/* ======================================================
-                TABLA
-            ====================================================== */}
 
             <div className="table-wrapper">
 
@@ -934,115 +1267,140 @@ export default function AdminPage() {
 
                 </thead>
 
-
                 <tbody>
 
-                  {filteredUsers.map(
-                    (user) => (
-                      <tr key={user.id}>
+                  {loading ? (
 
-                        <td>
+                    <tr>
 
-                          <div className="document-cell">
+                      <td
+                        colSpan="6"
+                        style={{
+                          textAlign:
+                            "center",
+                          padding:
+                            "40px",
+                        }}
+                      >
+                        Cargando usuarios...
+                      </td>
 
-                            <div className="user-avatar">
-                              {getInitials(
-                                user.name
+                    </tr>
+
+                  ) : (
+
+                    filteredUsers.map(
+                      (user) => (
+
+                        <tr
+                          key={user.id}
+                        >
+
+                          <td>
+
+                            <div className="document-cell">
+
+                              <div className="user-avatar">
+                                {getInitials(
+                                  user.name
+                                )}
+                              </div>
+
+                              <div className="document-information">
+
+                                <strong>
+                                  {user.name}
+                                </strong>
+
+                                <span>
+                                  {user.email}
+                                </span>
+
+                              </div>
+
+                            </div>
+
+                          </td>
+
+                          <td>
+
+                            <span className="recipient-name">
+                              {user.role}
+                            </span>
+
+                          </td>
+
+                          <td>
+
+                            <span className="recipient-name">
+                              {user.department}
+                            </span>
+
+                          </td>
+
+                          <td>
+
+                            <span className="document-date">
+                              {formatLastAccess(
+                                user.lastAccess
                               )}
-                            </div>
+                            </span>
 
-                            <div className="document-information">
+                          </td>
 
-                              <strong>
-                                {user.name}
-                              </strong>
+                          <td>
 
-                              <span>
-                                {user.email}
-                              </span>
+                            <span
+                              className={`status-badge ${
+                                String(
+                                  user.status
+                                )
+                                  .trim()
+                                  .toLowerCase() ===
+                                "activo"
+                                  ? "green"
+                                  : "orange"
+                              }`}
+                            >
 
-                            </div>
+                              <span className="status-dot"></span>
 
-                          </div>
+                              {user.status}
 
-                        </td>
+                            </span>
 
+                          </td>
 
-                        <td>
+                          <td>
 
-                          <span className="recipient-name">
-                            {user.role}
-                          </span>
+                            <button
+                              type="button"
+                              className="document-view-button"
+                              onClick={() =>
+                                setSelectedUser(
+                                  user
+                                )
+                              }
+                            >
+                              Ver detalles
+                            </button>
 
-                        </td>
+                          </td>
 
+                        </tr>
 
-                        <td>
-
-                          <span className="recipient-name">
-                            {user.department}
-                          </span>
-
-                        </td>
-
-
-                        <td>
-
-                          <span className="document-date">
-                            {formatLastAccess(
-                              user.lastAccess
-                            )}
-                          </span>
-
-                        </td>
-
-
-                        <td>
-
-                          <span
-                            className={`status-badge ${
-                              user.status ===
-                              "Activo"
-                                ? "green"
-                                : "orange"
-                            }`}
-                          >
-
-                            <span className="status-dot"></span>
-
-                            {user.status}
-
-                          </span>
-
-                        </td>
-
-
-                        <td>
-
-                          <button
-                            type="button"
-                            className="document-view-button"
-                            onClick={() =>
-                              setSelectedUser(
-                                user
-                              )
-                            }
-                          >
-                            Ver detalles
-                          </button>
-
-                        </td>
-
-                      </tr>
+                      )
                     )
+
                   )}
 
                 </tbody>
 
               </table>
 
-
-              {filteredUsers.length === 0 && (
+              {!loading &&
+                filteredUsers.length ===
+                  0 && (
 
                 <div className="documents-empty">
 
@@ -1055,8 +1413,8 @@ export default function AdminPage() {
                   </h3>
 
                   <p>
-                    Prueba con otro término o
-                    cambia el filtro.
+                    No hay usuarios registrados
+                    o no coinciden con tu búsqueda.
                   </p>
 
                   <button
@@ -1077,97 +1435,79 @@ export default function AdminPage() {
 
           </section>
 
+          {/* ==================================================
+              ACCIONES RÁPIDAS
+          ================================================== */}
 
-          {/* ========================================================
-              RESUMEN DEL SISTEMA
-          ======================================================== */}
+          <section className="quick-actions">
 
-          <section className="content-card">
+            <div className="quick-actions-header">
 
-            <div className="content-card-header">
+              <span>
+                ACCIONES RÁPIDAS
+              </span>
 
-              <div>
-
-                <span>
-                  RESUMEN
-                </span>
-
-                <h2>
-                  Estado del sistema
-                </h2>
-
-              </div>
+              <h2>
+                ¿Qué deseas hacer?
+              </h2>
 
             </div>
 
+            <div className="quick-actions-grid">
 
-            <div className="admin-system-grid">
+              <Link
+                href="/admin/users/new"
+                className="quick-action"
+              >
 
-              <div className="admin-system-card">
+                <div className="quick-action-icon green">
+                  +
+                </div>
 
-                <div className="admin-system-icon blue">
+                <div>
+
+                  <strong>
+                    Crear usuario
+                  </strong>
+
+                  <span>
+                    Registrar una nueva cuenta
+                  </span>
+
+                </div>
+
+                <span className="quick-action-arrow">
+                  →
+                </span>
+
+              </Link>
+
+              <Link
+                href="/dashboard/history"
+                className="quick-action"
+              >
+
+                <div className="quick-action-icon orange">
                   ◷
                 </div>
 
-                <div className="admin-system-info">
-
-                  <span>
-                    Actividades registradas
-                  </span>
+                <div>
 
                   <strong>
-                    {historyCount}
+                    Consultar historial
                   </strong>
-
-                </div>
-
-              </div>
-
-
-              <div className="admin-system-card">
-
-                <div className="admin-system-icon orange">
-                  !
-                </div>
-
-                <div className="admin-system-info">
 
                   <span>
-                    Usuarios inactivos
+                    Revisar la actividad del sistema
                   </span>
 
-                  <strong>
-                    {inactiveUsers}
-                  </strong>
-
                 </div>
 
-              </div>
+                <span className="quick-action-arrow">
+                  →
+                </span>
 
-
-              <div className="admin-system-card operational">
-
-                <div className="admin-system-icon green">
-                  ✓
-                </div>
-
-                <div className="admin-system-info">
-
-                  <span>
-                    Estado del portal
-                  </span>
-
-                  <strong>
-                    Operativo
-                  </strong>
-
-                  <small>
-                    Todos los servicios funcionan correctamente
-                  </small>
-
-                </div>
-
-              </div>
+              </Link>
 
             </div>
 
@@ -1177,10 +1517,9 @@ export default function AdminPage() {
 
       </main>
 
-
-      {/* ============================================================
+      {/* ======================================================
           MODAL DE USUARIO
-      ============================================================ */}
+      ====================================================== */}
 
       {selectedUser && (
 
@@ -1228,7 +1567,6 @@ export default function AdminPage() {
 
             </div>
 
-
             <div className="document-modal-body">
 
               <div className="document-modal-file">
@@ -1253,7 +1591,6 @@ export default function AdminPage() {
 
               </div>
 
-
               <div className="document-detail-field">
 
                 <span>
@@ -1265,7 +1602,6 @@ export default function AdminPage() {
                 </strong>
 
               </div>
-
 
               <div className="document-detail-field">
 
@@ -1279,7 +1615,6 @@ export default function AdminPage() {
 
               </div>
 
-
               <div className="document-detail-field">
 
                 <span>
@@ -1292,7 +1627,6 @@ export default function AdminPage() {
 
               </div>
 
-
               <div className="document-detail-field">
 
                 <span>
@@ -1304,7 +1638,6 @@ export default function AdminPage() {
                 </strong>
 
               </div>
-
 
               <div className="document-detail-field">
 
@@ -1320,9 +1653,7 @@ export default function AdminPage() {
 
               </div>
 
-
               {selectedUser.createdAt && (
-
                 <div className="document-detail-field">
 
                   <span>
@@ -1330,18 +1661,15 @@ export default function AdminPage() {
                   </span>
 
                   <strong>
-                    {new Date(
+                    {formatDate(
                       selectedUser.createdAt
-                    ).toLocaleString("es-CO")}
+                    )}
                   </strong>
 
                 </div>
-
               )}
 
-
               {selectedUser.createdBy && (
-
                 <div className="document-detail-field">
 
                   <span>
@@ -1353,11 +1681,9 @@ export default function AdminPage() {
                   </strong>
 
                 </div>
-
               )}
 
             </div>
-
 
             <div className="document-modal-footer">
 

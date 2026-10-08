@@ -45,43 +45,6 @@ function getInitials(name) {
 }
 
 // ============================================================
-// GENERAR ID DE USUARIO
-// ============================================================
-
-function generateUserId(users) {
-  const numbers = users
-    .map((user) => {
-      const match = String(user?.id || "").match(
-        /^USR-(\d+)$/
-      );
-
-      return match ? Number(match[1]) : 0;
-    })
-    .filter(
-      (number) =>
-        Number.isFinite(number) &&
-        number > 0
-    );
-
-  const nextNumber =
-    numbers.length > 0
-      ? Math.max(...numbers) + 1
-      : 1;
-
-  return `USR-${String(nextNumber).padStart(3, "0")}`;
-}
-
-// ============================================================
-// GENERAR ID DE HISTORIAL
-// ============================================================
-
-function generateHistoryId() {
-  return `HIST-${Date.now()}-${Math.random()
-    .toString(36)
-    .substring(2, 7)}`;
-}
-
-// ============================================================
 // COMPONENTE
 // ============================================================
 
@@ -94,11 +57,14 @@ export default function NewUserPage() {
 
   const [currentUser, setCurrentUser] = useState({
     id: "",
-    name: "Greylin Martínez",
+    name: "Administrador",
     email: "",
     role: "Administrador",
     department: "Administración",
   });
+
+  const [checkingSession, setCheckingSession] =
+    useState(true);
 
   // ============================================================
   // FORMULARIO
@@ -116,79 +82,94 @@ export default function NewUserPage() {
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   // ============================================================
-  // CARGAR USUARIO ACTUAL
+  // VERIFICAR SESIÓN DEL ADMINISTRADOR
   // ============================================================
 
   useEffect(() => {
-    try {
-      const currentUserData =
-        localStorage.getItem(
-          "docuportal_current_user"
+    const loadCurrentUser = async () => {
+      try {
+        const response = await fetch(
+          "/api/usuarios/sesion",
+          {
+            method: "GET",
+            cache: "no-store",
+          }
         );
 
-      if (!currentUserData) {
+        const data = await response.json();
+
+        if (
+          !response.ok ||
+          !data.success ||
+          !data.usuario
+        ) {
+          router.replace("/login");
+          return;
+        }
+
+        const usuario = data.usuario;
+
+        const rol = String(
+          usuario.rol || ""
+        )
+          .trim()
+          .toLowerCase();
+
+        // ======================================================
+        // SOLO ADMINISTRADORES
+        // ======================================================
+
+        if (rol !== "administrador") {
+          router.replace("/dashboard");
+          return;
+        }
+
+        setCurrentUser({
+          id: usuario.id || "",
+          name:
+            usuario.nombre ||
+            "Administrador",
+          email:
+            usuario.correo ||
+            "",
+          role:
+            usuario.rol ||
+            "Administrador",
+          department:
+            usuario.departamento ||
+            "Administración",
+        });
+
+        setCheckingSession(false);
+      } catch (error) {
+        console.error(
+          "Error verificando la sesión:",
+          error
+        );
+
         router.replace("/login");
-        return;
       }
+    };
 
-      const parsedUser =
-        JSON.parse(currentUserData);
-
-      // --------------------------------------------------------
-      // SOLO ADMINISTRADORES PUEDEN CREAR USUARIOS
-      // --------------------------------------------------------
-
-      if (
-        parsedUser.role !==
-        "Administrador"
-      ) {
-        router.replace("/dashboard");
-        return;
-      }
-
-      setCurrentUser({
-        id: parsedUser.id || "",
-        name:
-          parsedUser.name ||
-          "Usuario",
-        email:
-          parsedUser.email || "",
-        role:
-          parsedUser.role ||
-          "Usuario",
-        department:
-          parsedUser.department ||
-          "",
-      });
-    } catch (error) {
-      console.error(
-        "Error leyendo el usuario actual:",
-        error
-      );
-
-      localStorage.removeItem(
-        "docuportal_current_user"
-      );
-
-      router.replace("/login");
-    }
+    loadCurrentUser();
   }, [router]);
 
   // ============================================================
   // CREAR USUARIO
   // ============================================================
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
     setError("");
     setSuccess(false);
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // VALIDACIONES
-    // ----------------------------------------------------------
+    // ==========================================================
 
     if (!name.trim()) {
       setError(
@@ -238,10 +219,6 @@ export default function NewUserPage() {
       return;
     }
 
-    // ----------------------------------------------------------
-    // VALIDAR OPCIONES
-    // ----------------------------------------------------------
-
     if (!ROLES.includes(role)) {
       setError(
         "El rol seleccionado no es válido."
@@ -266,248 +243,61 @@ export default function NewUserPage() {
       return;
     }
 
-    // ----------------------------------------------------------
-    // GUARDAR
-    // ----------------------------------------------------------
+    // ==========================================================
+    // GUARDAR EN NEON
+    // ==========================================================
 
     try {
-      const usersData =
-        localStorage.getItem(
-          "docuportal_users"
-        );
+      setSaving(true);
 
-      let existingUsers = [];
-
-      try {
-        existingUsers = usersData
-          ? JSON.parse(usersData)
-          : [];
-
-        if (!Array.isArray(existingUsers)) {
-          existingUsers = [];
+      const response = await fetch(
+        "/api/usuarios/registro",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            nombre: name.trim(),
+            correo: normalizedEmail,
+            contrasena: password,
+            rol: role,
+            departamento: department,
+            estado: status,
+          }),
         }
-      } catch (parseError) {
-        console.error(
-          "Error leyendo usuarios existentes:",
-          parseError
-        );
+      );
 
-        existingUsers = [];
-      }
+      const data = await response.json();
 
-      // --------------------------------------------------------
-      // VALIDAR CORREO REPETIDO
-      // --------------------------------------------------------
-
-      const emailExists =
-        existingUsers.some(
-          (user) =>
-            String(user?.email || "")
-              .trim()
-              .toLowerCase() ===
-            normalizedEmail
-        );
-
-      if (emailExists) {
+      if (!response.ok || !data.success) {
         setError(
-          "Ya existe un usuario con este correo electrónico."
+          data.message ||
+            "No fue posible crear el usuario."
         );
         return;
       }
 
-      const now = new Date();
-
-      // --------------------------------------------------------
-      // GENERAR ID
-      // --------------------------------------------------------
-      //
-      // También tenemos en cuenta al usuario actual para evitar
-      // una posible colisión si localStorage está incompleto.
-      // --------------------------------------------------------
-
-      const usersForId = [
-        ...existingUsers,
-        currentUser,
-      ];
-
-      const newUserId =
-        generateUserId(usersForId);
-
-      // --------------------------------------------------------
-      // NUEVO USUARIO
-      // --------------------------------------------------------
-
-      const newUser = {
-        id: newUserId,
-
-        name: name.trim(),
-
-        email: normalizedEmail,
-
-        role,
-
-        department,
-
-        status,
-
-        lastAccess: "Nunca",
-
-        createdAt: now.toISOString(),
-
-        createdBy:
-          currentUser.name,
-
-        createdById:
-          currentUser.id,
-
-        createdByRole:
-          currentUser.role,
-
-        // ------------------------------------------------------
-        // TEMPORAL
-        // ------------------------------------------------------
-        // Más adelante esta contraseña será manejada
-        // por el backend de forma segura.
-        // ------------------------------------------------------
-
-        password,
-      };
-
-      // --------------------------------------------------------
-      // GUARDAR USUARIO
-      // --------------------------------------------------------
-
-      localStorage.setItem(
-        "docuportal_users",
-        JSON.stringify([
-          newUser,
-          ...existingUsers,
-        ])
-      );
-
       // ========================================================
-      // HISTORIAL
+      // ÉXITO
       // ========================================================
-
-      const historyData =
-        localStorage.getItem(
-          "docuportal_history"
-        );
-
-      let existingHistory = [];
-
-      try {
-        existingHistory = historyData
-          ? JSON.parse(historyData)
-          : [];
-
-        if (!Array.isArray(existingHistory)) {
-          existingHistory = [];
-        }
-      } catch (parseError) {
-        console.error(
-          "Error leyendo historial existente:",
-          parseError
-        );
-
-        existingHistory = [];
-      }
-
-      const historyItem = {
-        id: generateHistoryId(),
-
-        action: "Usuario creado",
-
-        document: newUser.name,
-
-        documentId: newUser.id,
-
-        // ------------------------------------------------------
-        // QUIÉN REALIZÓ LA ACCIÓN
-        // ------------------------------------------------------
-
-        user: currentUser.name,
-
-        userId: currentUser.id,
-
-        userRole: currentUser.role,
-
-        userEmail: currentUser.email,
-
-        department: currentUser.department,
-
-        // ------------------------------------------------------
-        // INFORMACIÓN DEL USUARIO CREADO
-        // ------------------------------------------------------
-
-        createdUserId: newUser.id,
-
-        createdUserName: newUser.name,
-
-        createdUserEmail: newUser.email,
-
-        createdUserRole: newUser.role,
-
-        createdUserDepartment:
-          newUser.department,
-
-        date: now.toLocaleDateString(
-          "es-CO",
-          {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-          }
-        ),
-
-        time: now.toLocaleTimeString(
-          "es-CO",
-          {
-            hour: "2-digit",
-            minute: "2-digit",
-          }
-        ),
-
-        status: newUser.status,
-
-        type: "Usuario",
-
-        details:
-          `El usuario ${currentUser.name} creó la cuenta de ${newUser.name} con rol ${newUser.role}.`,
-
-        createdAt: now.toISOString(),
-      };
-
-      // --------------------------------------------------------
-      // GUARDAR HISTORIAL
-      // --------------------------------------------------------
-
-      localStorage.setItem(
-        "docuportal_history",
-        JSON.stringify([
-          historyItem,
-          ...existingHistory,
-        ])
-      );
-
-      // --------------------------------------------------------
-      // MOSTRAR ÉXITO
-      // --------------------------------------------------------
 
       setSuccess(true);
 
       setTimeout(() => {
         router.push("/admin");
       }, 800);
-    } catch (storageError) {
+    } catch (error) {
       console.error(
-        "Error al guardar usuario:",
-        storageError
+        "Error creando usuario:",
+        error
       );
 
       setError(
         "No fue posible guardar el usuario. Intenta nuevamente."
       );
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -520,15 +310,37 @@ export default function NewUserPage() {
   );
 
   // ============================================================
+  // VERIFICANDO SESIÓN
+  // ============================================================
+
+  if (checkingSession) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "#f7f8fa",
+          color: "#555",
+          fontFamily: "Arial, sans-serif",
+        }}
+      >
+        Verificando permisos...
+      </div>
+    );
+  }
+
+  // ============================================================
   // RENDER
   // ============================================================
 
   return (
     <div className="dashboard-layout">
 
-      {/* ============================================================
+      {/* ========================================================
           SIDEBAR
-      ============================================================ */}
+      ======================================================== */}
 
       <aside className="sidebar">
 
@@ -675,7 +487,9 @@ export default function NewUserPage() {
 
           </div>
 
-          <LogoutButton className="logout-link">
+          <LogoutButton
+            className="logout-link"
+          >
             <span>
               ↪
             </span>
@@ -687,9 +501,9 @@ export default function NewUserPage() {
 
       </aside>
 
-      {/* ============================================================
+      {/* ========================================================
           CONTENIDO
-      ============================================================ */}
+      ======================================================== */}
 
       <main className="dashboard-main">
 
@@ -735,9 +549,9 @@ export default function NewUserPage() {
 
         <div className="dashboard-content">
 
-          {/* ========================================================
+          {/* ====================================================
               INTRO
-          ======================================================== */}
+          ==================================================== */}
 
           <section className="documents-intro">
 
@@ -767,9 +581,9 @@ export default function NewUserPage() {
 
           </section>
 
-          {/* ========================================================
+          {/* ====================================================
               FORMULARIO
-          ======================================================== */}
+          ==================================================== */}
 
           <section className="content-card new-document-card">
 
@@ -794,9 +608,7 @@ export default function NewUserPage() {
               onSubmit={handleSubmit}
             >
 
-              {/* ====================================================
-                  NOMBRE
-              ==================================================== */}
+              {/* NOMBRE */}
 
               <div className="form-field">
 
@@ -820,9 +632,7 @@ export default function NewUserPage() {
 
               </div>
 
-              {/* ====================================================
-                  CORREO
-              ==================================================== */}
+              {/* CORREO */}
 
               <div className="form-field">
 
@@ -846,9 +656,7 @@ export default function NewUserPage() {
 
               </div>
 
-              {/* ====================================================
-                  ROL Y ÁREA
-              ==================================================== */}
+              {/* ROL Y ÁREA */}
 
               <div className="form-row">
 
@@ -868,7 +676,6 @@ export default function NewUserPage() {
                       )
                     }
                   >
-
                     {ROLES.map(
                       (item) => (
                         <option
@@ -879,7 +686,6 @@ export default function NewUserPage() {
                         </option>
                       )
                     )}
-
                   </select>
 
                 </div>
@@ -900,7 +706,6 @@ export default function NewUserPage() {
                       )
                     }
                   >
-
                     {DEPARTMENTS.map(
                       (item) => (
                         <option
@@ -911,16 +716,13 @@ export default function NewUserPage() {
                         </option>
                       )
                     )}
-
                   </select>
 
                 </div>
 
               </div>
 
-              {/* ====================================================
-                  ESTADO
-              ==================================================== */}
+              {/* ESTADO */}
 
               <div className="form-field">
 
@@ -951,9 +753,7 @@ export default function NewUserPage() {
 
               </div>
 
-              {/* ====================================================
-                  CONTRASEÑA
-              ==================================================== */}
+              {/* CONTRASEÑA */}
 
               <div className="form-row">
 
@@ -1003,9 +803,7 @@ export default function NewUserPage() {
 
               </div>
 
-              {/* ====================================================
-                  INFORMACIÓN
-              ==================================================== */}
+              {/* INFORMACIÓN */}
 
               <div
                 style={{
@@ -1036,15 +834,15 @@ export default function NewUserPage() {
 
               </div>
 
-              {/* ====================================================
-                  MENSAJES
-              ==================================================== */}
+              {/* MENSAJE ERROR */}
 
               {error && (
                 <div className="form-error">
                   {error}
                 </div>
               )}
+
+              {/* MENSAJE ÉXITO */}
 
               {success && (
                 <div className="form-success">
@@ -1053,9 +851,7 @@ export default function NewUserPage() {
                 </div>
               )}
 
-              {/* ====================================================
-                  BOTONES
-              ==================================================== */}
+              {/* BOTONES */}
 
               <div className="new-document-actions">
 
@@ -1069,15 +865,15 @@ export default function NewUserPage() {
                 <button
                   type="submit"
                   className="documents-new-button"
-                  disabled={success}
+                  disabled={saving || success}
                 >
-
                   <span>
                     ✓
                   </span>
 
-                  Crear usuario
-
+                  {saving
+                    ? "Creando..."
+                    : "Crear usuario"}
                 </button>
 
               </div>
@@ -1086,15 +882,14 @@ export default function NewUserPage() {
 
           </section>
 
-          {/* ========================================================
+          {/* ====================================================
               AVISO
-          ======================================================== */}
+          ==================================================== */}
 
           <p className="documents-demo-notice">
-            Por ahora los usuarios se almacenan
-            temporalmente en este navegador. La
-            autenticación y la base de datos se
-            conectarán posteriormente.
+            Los usuarios registrados se almacenan
+            en el sistema y podrán utilizar sus
+            credenciales para acceder al portal.
           </p>
 
         </div>

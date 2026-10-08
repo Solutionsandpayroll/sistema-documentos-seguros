@@ -1,60 +1,8 @@
 "use client";
 
-"use client";
-
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import LogoutButton from "@/components/LogoutButton";
-const DEMO_TICKETS = [
-  {
-    id: "TKT-001",
-    subject: "Solicitud de revisión de contrato",
-    category: "Documentos",
-    priority: "Alta",
-    status: "Abierto",
-    requester: "Greylin Martínez",
-    date: "06 Oct 2026",
-    description:
-      "Solicitud de revisión y validación de un contrato antes de enviarlo al destinatario.",
-    createdAt: "2026-10-06T08:00:00.000Z",
-  },
-  {
-    id: "TKT-002",
-    subject: "Problema con documento enviado",
-    category: "Soporte",
-    priority: "Media",
-    status: "En proceso",
-    requester: "Greylin Martínez",
-    date: "05 Oct 2026",
-    description:
-      "El documento fue enviado correctamente, pero se requiere verificar su estado.",
-    createdAt: "2026-10-05T08:00:00.000Z",
-  },
-  {
-    id: "TKT-003",
-    subject: "Solicitud de certificación laboral",
-    category: "Solicitud",
-    priority: "Normal",
-    status: "Cerrado",
-    requester: "Greylin Martínez",
-    date: "04 Oct 2026",
-    description:
-      "Solicitud relacionada con una certificación laboral.",
-    createdAt: "2026-10-04T08:00:00.000Z",
-  },
-  {
-    id: "TKT-004",
-    subject: "Soporte para cargar archivo",
-    category: "Soporte",
-    priority: "Normal",
-    status: "Abierto",
-    requester: "Greylin Martínez",
-    date: "03 Oct 2026",
-    description:
-      "Solicitud de ayuda para cargar un archivo al portal documental.",
-    createdAt: "2026-10-03T08:00:00.000Z",
-  },
-];
 
 const VALID_STATUSES = [
   "Todos",
@@ -83,24 +31,15 @@ function getInitials(name) {
 }
 
 export default function TicketsPage() {
-  // ============================================================
-  // USUARIO ACTUAL
-  // ============================================================
-
   const [currentUser, setCurrentUser] = useState({
     id: "",
-    name: "Greylin Martínez",
+    name: "Usuario",
     email: "",
     role: "Usuario",
     department: "",
   });
 
-  // ============================================================
-  // TICKETS
-  // ============================================================
-
-  const [tickets, setTickets] =
-    useState(DEMO_TICKETS);
+  const [tickets, setTickets] = useState([]);
 
   const [search, setSearch] = useState("");
 
@@ -110,67 +49,196 @@ export default function TicketsPage() {
   const [selectedTicket, setSelectedTicket] =
     useState(null);
 
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState("");
+
   // ============================================================
-  // CARGAR USUARIO Y TICKETS
+  // CARGAR USUARIO DESDE LA SESIÓN
   // ============================================================
 
   useEffect(() => {
-    try {
-      // ----------------------------------------------------------
-      // USUARIO ACTUAL
-      // ----------------------------------------------------------
-
-      const currentUserData =
-        localStorage.getItem(
-          "docuportal_current_user"
+    const loadCurrentUser = async () => {
+      try {
+        const response = await fetch(
+          "/api/usuarios/sesion",
+          {
+            method: "GET",
+            cache: "no-store",
+          }
         );
 
-      if (currentUserData) {
-        const parsedUser =
-          JSON.parse(currentUserData);
+        const data =
+          await response.json();
+
+        if (
+          !response.ok ||
+          !data.success ||
+          !data.usuario
+        ) {
+          window.location.href = "/login";
+          return;
+        }
+
+        const usuario = data.usuario;
 
         setCurrentUser({
-          id: parsedUser.id || "",
+          id: usuario.id || "",
+
           name:
-            parsedUser.name ||
+            usuario.nombre ||
             "Usuario",
+
           email:
-            parsedUser.email || "",
-          role:
-            parsedUser.role ||
-            "Usuario",
-          department:
-            parsedUser.department ||
+            usuario.correo ||
             "",
+
+          role:
+            usuario.rol ||
+            "Usuario",
+
+          department: "",
         });
-      }
-
-      // ----------------------------------------------------------
-      // TICKETS GUARDADOS
-      // ----------------------------------------------------------
-
-      const savedTickets =
-        JSON.parse(
-          localStorage.getItem(
-            "docuportal_tickets"
-          ) || "[]"
+      } catch (error) {
+        console.error(
+          "Error al cargar usuario:",
+          error
         );
 
-      if (
-        Array.isArray(savedTickets) &&
-        savedTickets.length > 0
-      ) {
-        setTickets([
-          ...savedTickets,
-          ...DEMO_TICKETS,
-        ]);
+        window.location.href = "/login";
       }
-    } catch (error) {
-      console.error(
-        "Error al cargar información de tickets:",
-        error
-      );
-    }
+    };
+
+    loadCurrentUser();
+  }, []);
+
+  // ============================================================
+  // CARGAR TICKETS DESDE NEON
+  // ============================================================
+
+  useEffect(() => {
+    const loadTickets = async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        const response = await fetch(
+          "/api/tickets",
+          {
+            method: "GET",
+            cache: "no-store",
+          }
+        );
+
+        const data =
+          await response.json();
+
+        if (
+          !response.ok ||
+          !data.success
+        ) {
+          throw new Error(
+            data.message ||
+              "No fue posible obtener los tickets."
+          );
+        }
+
+        // ======================================================
+        // CONVERTIR LOS CAMPOS DE NEON
+        // AL FORMATO QUE USA ESTA PÁGINA
+        // ======================================================
+
+        const ticketsFromNeon =
+          Array.isArray(data.tickets)
+            ? data.tickets.map((ticket) => ({
+                id: ticket.codigo,
+
+                subject:
+                  ticket.asunto,
+
+                category:
+                  ticket.categoria,
+
+                priority:
+                  ticket.prioridad,
+
+                status:
+                  ticket.estado,
+
+                requester:
+                  ticket.solicitante,
+
+                requesterEmail:
+                  ticket.correo_solicitante,
+
+                description:
+                  ticket.descripcion,
+
+                fileName:
+                  ticket.archivo_nombre,
+
+                filePath:
+                  ticket.archivo_ruta,
+
+                date: ticket.creado_en
+                  ? new Date(
+                      ticket.creado_en
+                    ).toLocaleDateString(
+                      "es-CO",
+                      {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      }
+                    )
+                  : "Sin fecha",
+
+                time: ticket.creado_en
+                  ? new Date(
+                      ticket.creado_en
+                    ).toLocaleTimeString(
+                      "es-CO",
+                      {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      }
+                    )
+                  : "",
+
+                createdAt:
+                  ticket.creado_en,
+
+                updatedAt:
+                  ticket.actualizado_en,
+
+                databaseId:
+                  ticket.id,
+              }))
+            : [];
+
+        setTickets(
+          ticketsFromNeon
+        );
+      } catch (error) {
+        console.error(
+          "Error al cargar tickets:",
+          error
+        );
+
+        setError(
+          error.message ||
+            "No fue posible cargar los tickets."
+        );
+
+        setTickets([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadTickets();
   }, []);
 
   // ============================================================
@@ -187,6 +255,7 @@ export default function TicketsPage() {
         ticket.subject,
         ticket.category,
         ticket.requester,
+        ticket.requesterEmail,
         ticket.description,
       ].some((value) =>
         String(value || "")
@@ -236,6 +305,12 @@ export default function TicketsPage() {
   const initials = getInitials(
     currentUser.name
   );
+
+  const isAdmin =
+    String(currentUser.role || "")
+      .trim()
+      .toLowerCase() ===
+    "administrador";
 
   return (
     <div className="dashboard-layout">
@@ -352,8 +427,30 @@ export default function TicketsPage() {
             </span>
           </Link>
 
-          {currentUser.role ===
-            "Administrador" && (
+          {/* ======================================================
+              MI CUENTA
+          ====================================================== */}
+
+          {isAdmin && (
+            <Link
+              href="/dashboard/configuracion"
+              className="navigation-item"
+            >
+              <span className="navigation-icon">
+                ◉
+              </span>
+
+              <span>
+                Mi cuenta
+              </span>
+            </Link>
+          )}
+
+          {/* ======================================================
+              ADMINISTRACIÓN
+          ====================================================== */}
+
+          {isAdmin && (
             <Link
               href="/admin"
               className="navigation-item"
@@ -661,199 +758,248 @@ export default function TicketsPage() {
 
             <div className="table-wrapper">
 
-              <table className="documents-table">
+              {loading ? (
 
-                <thead>
+                <div className="documents-empty">
 
-                  <tr>
+                  <div>
+                    ◷
+                  </div>
 
-                    <th>
-                      TICKET
-                    </th>
+                  <h3>
+                    Cargando tickets...
+                  </h3>
 
-                    <th>
-                      CATEGORÍA
-                    </th>
+                  <p>
+                    Estamos consultando los tickets
+                    guardados en el portal.
+                  </p>
 
-                    <th>
-                      PRIORIDAD
-                    </th>
+                </div>
 
-                    <th>
-                      FECHA
-                    </th>
+              ) : error ? (
 
-                    <th>
-                      ESTADO
-                    </th>
+                <div className="documents-empty">
 
-                    <th>
-                      ACCIÓN
-                    </th>
+                  <div>
+                    !
+                  </div>
 
-                  </tr>
+                  <h3>
+                    No fue posible cargar los tickets
+                  </h3>
 
-                </thead>
+                  <p>
+                    {error}
+                  </p>
 
-                <tbody>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      window.location.reload()
+                    }
+                  >
+                    Intentar nuevamente
+                  </button>
 
-                  {filteredTickets.map(
-                    (ticket, index) => (
-                      <tr
-                        key={`${ticket.id}-${ticket.createdAt || index}`}
-                      >
+                </div>
 
-                        <td>
+              ) : (
 
-                          <div className="document-cell">
+                <table className="documents-table">
 
-                            <div className="document-type">
-                              TKT
+                  <thead>
+
+                    <tr>
+
+                      <th>
+                        TICKET
+                      </th>
+
+                      <th>
+                        CATEGORÍA
+                      </th>
+
+                      <th>
+                        PRIORIDAD
+                      </th>
+
+                      <th>
+                        FECHA
+                      </th>
+
+                      <th>
+                        ESTADO
+                      </th>
+
+                      <th>
+                        ACCIÓN
+                      </th>
+
+                    </tr>
+
+                  </thead>
+
+                  <tbody>
+
+                    {filteredTickets.map(
+                      (ticket, index) => (
+                        <tr
+                          key={`${ticket.id}-${ticket.createdAt || index}`}
+                        >
+
+                          <td>
+
+                            <div className="document-cell">
+
+                              <div className="document-type">
+                                TKT
+                              </div>
+
+                              <div className="document-information">
+
+                                <strong>
+                                  {ticket.subject}
+                                </strong>
+
+                                <span>
+                                  {ticket.id} ·{" "}
+                                  {ticket.requester ||
+                                    "Usuario"}
+                                </span>
+
+                              </div>
+
                             </div>
 
-                            <div className="document-information">
+                          </td>
 
-                              <strong>
-                                {ticket.subject}
-                              </strong>
+                          <td>
 
-                              <span>
-                                {ticket.id} ·{" "}
-                                {ticket.requester ||
-                                  "Usuario"}
-                              </span>
+                            <span className="recipient-name">
+                              {ticket.category}
+                            </span>
 
-                            </div>
+                          </td>
 
-                          </div>
+                          <td>
 
-                        </td>
+                            <span
+                              className={`status-badge ${
+                                ticket.priority ===
+                                "Alta"
+                                  ? "orange"
+                                  : ticket.priority ===
+                                    "Media"
+                                  ? "blue"
+                                  : "green"
+                              }`}
+                            >
 
-                        <td>
+                              <span className="status-dot"></span>
 
-                          <span className="recipient-name">
-                            {ticket.category}
-                          </span>
+                              {ticket.priority}
 
-                        </td>
+                            </span>
 
-                        <td>
+                          </td>
 
-                          <span
-                            className={`status-badge ${
-                              ticket.priority ===
-                              "Alta"
-                                ? "orange"
-                                : ticket.priority ===
-                                  "Media"
-                                ? "blue"
-                                : "green"
-                            }`}
-                          >
+                          <td>
 
-                            <span className="status-dot"></span>
+                            <span className="document-date">
+                              {ticket.date}
+                            </span>
 
-                            {ticket.priority}
+                          </td>
 
-                          </span>
+                          <td>
 
-                        </td>
+                            <span
+                              className={`status-badge ${
+                                ticket.status ===
+                                "Abierto"
+                                  ? "orange"
+                                  : ticket.status ===
+                                    "En proceso"
+                                  ? "blue"
+                                  : "green"
+                              }`}
+                            >
 
-                        <td>
+                              <span className="status-dot"></span>
 
-                          <span className="document-date">
-                            {ticket.date}
-                          </span>
+                              {ticket.status}
 
-                        </td>
+                            </span>
 
-                        <td>
+                          </td>
 
-                          <span
-                            className={`status-badge ${
-                              ticket.status ===
-                              "Abierto"
-                                ? "orange"
-                                : ticket.status ===
-                                  "En proceso"
-                                ? "blue"
-                                : "green"
-                            }`}
-                          >
+                          <td>
 
-                            <span className="status-dot"></span>
+                            <button
+                              type="button"
+                              className="document-view-button"
+                              onClick={() =>
+                                setSelectedTicket(
+                                  ticket
+                                )
+                              }
+                            >
+                              Ver detalles
+                            </button>
 
-                            {ticket.status}
+                          </td>
 
-                          </span>
+                        </tr>
+                      )
+                    )}
 
-                        </td>
+                  </tbody>
 
-                        <td>
+                </table>
 
-                          <button
-                            type="button"
-                            className="document-view-button"
-                            onClick={() =>
-                              setSelectedTicket(
-                                ticket
-                              )
-                            }
-                          >
-                            Ver detalles
-                          </button>
-
-                        </td>
-
-                      </tr>
-                    )
-                  )}
-
-                </tbody>
-
-              </table>
+              )}
 
               {/* ====================================================
                   SIN RESULTADOS
               ==================================================== */}
 
-              {filteredTickets.length === 0 && (
-                <div className="documents-empty">
+              {!loading &&
+                !error &&
+                filteredTickets.length === 0 && (
 
-                  <div>
-                    ⌕
+                  <div className="documents-empty">
+
+                    <div>
+                      ⌕
+                    </div>
+
+                    <h3>
+                      No encontramos tickets
+                    </h3>
+
+                    <p>
+                      Todavía no hay tickets registrados
+                      o no coinciden con tu búsqueda.
+                    </p>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearch("");
+                        setFilter("Todos");
+                      }}
+                    >
+                      Limpiar filtros
+                    </button>
+
                   </div>
 
-                  <h3>
-                    No encontramos tickets
-                  </h3>
-
-                  <p>
-                    Prueba con otro término o cambia
-                    el filtro.
-                  </p>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSearch("");
-                      setFilter("Todos");
-                    }}
-                  >
-                    Limpiar filtros
-                  </button>
-
-                </div>
-              )}
+                )}
 
             </div>
 
           </section>
-
-          <p className="documents-demo-notice">
-            Los tickets creados desde el formulario se
-            guardan temporalmente en este navegador.
-          </p>
 
         </div>
 
@@ -964,6 +1110,20 @@ export default function TicketsPage() {
 
               </div>
 
+              {selectedTicket.requesterEmail && (
+                <div className="document-detail-field">
+
+                  <span>
+                    Correo
+                  </span>
+
+                  <strong>
+                    {selectedTicket.requesterEmail}
+                  </strong>
+
+                </div>
+              )}
+
               <div className="document-detail-field">
 
                 <span>
@@ -972,6 +1132,9 @@ export default function TicketsPage() {
 
                 <strong>
                   {selectedTicket.date}
+                  {selectedTicket.time
+                    ? ` · ${selectedTicket.time}`
+                    : ""}
                 </strong>
 
               </div>
@@ -999,24 +1162,6 @@ export default function TicketsPage() {
                 </strong>
 
               </div>
-
-              {/* ====================================================
-                  USUARIO
-              ==================================================== */}
-
-              {selectedTicket.user && (
-                <div className="document-detail-field">
-
-                  <span>
-                    Creado por
-                  </span>
-
-                  <strong>
-                    {selectedTicket.user}
-                  </strong>
-
-                </div>
-              )}
 
               {/* ====================================================
                   DESCRIPCIÓN

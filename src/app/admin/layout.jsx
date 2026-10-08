@@ -1,53 +1,55 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 export default function AdminLayout({ children }) {
   const router = useRouter();
-  const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    const currentUserData = localStorage.getItem("docuportal_current_user");
+    const verifyAdminSession = async () => {
+      try {
+        const response = await fetch(
+          "/api/usuarios/sesion",
+          {
+            method: "GET",
+            cache: "no-store",
+          }
+        );
 
-    if (!currentUserData) {
-      router.replace("/login");
-      return;
-    }
+        if (!response.ok) {
+          router.replace("/login");
+          return;
+        }
 
-    try {
-      const currentUser = JSON.parse(currentUserData);
+        const data = await response.json();
 
-      if (currentUser.role !== "Administrador") {
-        router.replace("/dashboard");
-        return;
+        if (!data.success || !data.usuario) {
+          router.replace("/login");
+          return;
+        }
+
+        const rol = String(
+          data.usuario.rol || ""
+        )
+          .trim()
+          .toLowerCase();
+
+        if (rol !== "administrador") {
+          router.replace("/dashboard");
+        }
+      } catch (error) {
+        console.error(
+          "Error verificando permisos de administrador:",
+          error
+        );
+
+        router.replace("/login");
       }
+    };
 
-      setChecking(false);
-    } catch (error) {
-      console.error("Error leyendo la sesión:", error);
-      localStorage.removeItem("docuportal_current_user");
-      router.replace("/login");
-    }
+    verifyAdminSession();
   }, [router]);
-
-  if (checking) {
-    return (
-      <div
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "#f7f8fa",
-          color: "#555",
-          fontFamily: "Arial, sans-serif",
-        }}
-      >
-        Verificando permisos...
-      </div>
-    );
-  }
 
   return children;
 }
