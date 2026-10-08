@@ -1,16 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import {
+  Suspense,
+  useEffect,
+  useState,
+} from "react";
 import { useSearchParams } from "next/navigation";
 
-export default function DocumentoPage() {
+function DocumentoContenido() {
   const searchParams = useSearchParams();
 
-  const documentoId = searchParams.get("documento");
+  const documentoId =
+    searchParams.get("documento");
 
-  const [documento, setDocumento] = useState(null);
-  const [error, setError] = useState("");
-  const [cargando, setCargando] = useState(true);
+  const [documento, setDocumento] =
+    useState(null);
+
+  const [error, setError] =
+    useState("");
+
+  const [cargando, setCargando] =
+    useState(true);
 
   useEffect(() => {
     try {
@@ -23,6 +33,7 @@ export default function DocumentoPage() {
         setError(
           "No tienes autorización para acceder a este documento."
         );
+
         setCargando(false);
         return;
       }
@@ -33,11 +44,13 @@ export default function DocumentoPage() {
 
       if (
         documentoId &&
-        Number(datos.id) !== Number(documentoId)
+        Number(datos.id) !==
+          Number(documentoId)
       ) {
         setError(
           "El documento solicitado no coincide con la autorización."
         );
+
         setCargando(false);
         return;
       }
@@ -296,5 +309,28 @@ export default function DocumentoPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function DocumentoPage() {
+  return (
+    <Suspense
+      fallback={
+        <main
+          style={{
+            minHeight: "100vh",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            background: "#f4f6f8",
+            fontFamily: "Arial, sans-serif",
+          }}
+        >
+          <p>Cargando documento...</p>
+        </main>
+      }
+    >
+      <DocumentoContenido />
+    </Suspense>
   );
 }
